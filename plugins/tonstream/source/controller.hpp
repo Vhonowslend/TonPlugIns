@@ -1,9 +1,12 @@
 // Copyright 2023 Michael Fabian 'Xaymar' Dirks < info @xaymar.com>
 
+#include <warning-disable.hpp>
 #include <string_view>
 
 #include <pluginterfaces/vst/ivstchannelcontextinfo.h>
 #include <public.sdk/source/vst/vsteditcontroller.h>
+
+#include <warning-enable.hpp>
 
 namespace tonplugins::tonstream {
 	class controller : public Steinberg::Vst::EditControllerEx1, public Steinberg::Vst::ChannelContext::IInfoListener {
