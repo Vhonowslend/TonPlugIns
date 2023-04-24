@@ -1,0 +1,37 @@
+// Copyright 2023 Michael Fabian 'Xaymar' Dirks <info@xaymar.com>
+
+#include "version.hpp"
+#include <vector>
+
+std::string const tonplugins::core::version::to_string()
+{
+	char buffer[256] = {0};
+	snprintf(buffer, sizeof(buffer), "%4d.%4d.%4d.%4d%s-%s", major, minor, patch, tweak, prerelease.c_str(),
+			 commit.c_str());
+	return std::string(buffer);
+}
+
+bool tonplugins::core::version::operator==(const tonplugins::core::version& rhs)
+{
+	return (major == rhs.major) && (minor == rhs.minor) && (patch == rhs.patch) && (tweak == rhs.tweak) && (prerelease == rhs.prerelease) && (commit == rhs.commit);
+}
+
+bool tonplugins::core::version::operator>(const tonplugins::core::version& rhs)
+{
+	if (major > rhs.major)
+		return true;
+	if (minor > rhs.minor)
+		return true;
+	if (patch > rhs.patch)
+		return true;
+	if (tweak > rhs.tweak)
+		return true;
+	return false;
+}
+
+tonplugins::core::version tonplugins::core::get_version()
+{
+	// clang-format off
+	return { @_VERSION_MAJOR@, @_VERSION_MINOR@, @_VERSION_PATCH@, @_VERSION_TWEAK@, "@_VERSION_PRERELEASE@", "@_VERSION_BUILD@" };
+	// clang-format on
+}
