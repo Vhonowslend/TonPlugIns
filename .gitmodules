@@ -1,0 +1,12 @@
+[submodule "third-party/vst2sdk"]
+	path = third-party/vst2sdk
+	url = https://github.com/Xaymar/vst2sdk.git
+[submodule "cmake/modules/cmake-version"]
+	path = cmake/modules/cmake-version
+	url = https://github.com/Xaymar/cmake-version.git
+[submodule "cmake/modules/cmake-clang"]
+	path = cmake/modules/cmake-clang
+	url = https://github.com/Xaymar/cmake-clang.git
+[submodule "third-party/vst3sdk"]
+	path = third-party/vst3sdk
+	url = https://github.com/steinbergmedia/vst3sdk.git
