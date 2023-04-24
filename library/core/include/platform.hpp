@@ -1,10 +1,12 @@
 // Copyright 2023 Michael Fabian 'Xaymar' Dirks <info@xaymar.com>
 
 #pragma once
+#include "warning-disable.hpp"
 #include <filesystem>
 #include <memory>
 #include <string>
 #include <string_view>
+#include "warning-enable.hpp"
 
 namespace tonplugins::platform {
 	class library {

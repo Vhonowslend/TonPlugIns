@@ -4,6 +4,7 @@
 #include "version.hpp"
 #include "platform.hpp"
 
+#include "warning-disable.hpp"
 #include <chrono>
 #include <memory>
 #include <mutex>
@@ -21,6 +22,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #endif
+#include "warning-enable.hpp"
 
 static std::string formatted_time(bool file_safe = false)
 {
@@ -48,7 +50,7 @@ static std::string formatted_time(bool file_safe = false)
 	return std::string(time_buffer.data());
 };
 
-tonplugins::core::core::core(std::string app_name)
+tonplugins::core::core(std::string app_name)
 	: _app_name(app_name)
 {
 	{ // Local Data Path
@@ -75,7 +77,7 @@ tonplugins::core::core::core(std::string app_name)
 									static_cast<int>(buffer.size()), 0, nullptr);
 				CoTaskMemFree(widebuffer);
 
-				result = std::filesystem::u8path(std::string_view(buffer.data(), buffer.size() - 1));
+				result = std::filesystem::path(std::string_view(buffer.data(), buffer.size() - 1));
 				break;
 			}
 		}
@@ -126,7 +128,7 @@ tonplugins::core::core::core(std::string app_name)
 									static_cast<int>(buffer.size()), 0, nullptr);
 				CoTaskMemFree(widebuffer);
 
-				result = std::filesystem::u8path(std::string_view(buffer.data(), buffer.size() - 1));
+				result = std::filesystem::path(std::string_view(buffer.data(), buffer.size() - 1));
 				break;
 			}
 		}
@@ -208,7 +210,7 @@ tonplugins::core::core::core(std::string app_name)
 		}
 	}
 
-	log("Loaded v%s.", tonplugins::core::get_version().to_string().c_str());
+	log("Loaded v%s.", tonplugins::get_version().to_string().c_str());
 
 #ifdef WIN32
 	// Log information about the Host process.
@@ -229,35 +231,43 @@ tonplugins::core::core::core(std::string app_name)
 #endif
 }
 
-std::filesystem::path tonplugins::core::core::local_data()
+tonplugins::core::~core()
+{
+	if (_log_stream.is_open()) {
+		_log_stream.flush();
+		_log_stream.close();
+	}
+}
+
+std::filesystem::path tonplugins::core::local_data()
 {
 	return std::filesystem::path(_local_data);
 }
 
-std::filesystem::path tonplugins::core::core::roaming_data()
+std::filesystem::path tonplugins::core::roaming_data()
 {
 	return std::filesystem::path(_local_data);
 }
 
-std::filesystem::path tonplugins::core::core::cache_data()
+std::filesystem::path tonplugins::core::cache_data()
 {
 	return std::filesystem::path(_local_data);
 }
 
-void tonplugins::core::core::log(std::string_view format, ...)
+void tonplugins::core::log(std::string_view format, ...)
 {
 }
 
-std::shared_ptr<tonplugins::core::core> tonplugins::core::core::instance(std::string app_name)
+std::shared_ptr<tonplugins::core> tonplugins::core::instance(std::string app_name)
 {
-	static std::mutex                            mtx;
-	static std::weak_ptr<tonplugins::core::core> winst;
-	std::shared_ptr<tonplugins::core::core>      inst;
+	static std::mutex                      mtx;
+	static std::weak_ptr<tonplugins::core> winst;
+	std::shared_ptr<tonplugins::core>      inst;
 
-	std::lock_guard<decltype(mtx)> lock();
+	std::lock_guard<decltype(mtx)> lock(mtx);
 	inst = winst.lock();
 	if (!inst) {
-		inst  = std::shared_ptr<tonplugins::core::core>(new tonplugins::core::core(app_name));
+		inst  = std::shared_ptr<tonplugins::core>(new tonplugins::core(app_name));
 		winst = inst;
 	}
 	return inst;

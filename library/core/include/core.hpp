@@ -1,12 +1,14 @@
 // Copyright 2023 Michael Fabian 'Xaymar' Dirks <info@xaymar.com>
 
 #pragma once
+#include "warning-disable.hpp"
 #include <filesystem>
 #include <fstream>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <string_view>
+#include "warning-enable.hpp"
 
 #ifdef _MSC_VER
 #define TONPLUGINS_EXPORT __declspec(dllexport)
@@ -16,7 +18,7 @@
 #define TONPLUGINS_HIDDEN __attribute__((visibility("hidden")))
 #endif
 
-namespace tonplugins::core {
+namespace tonplugins {
 	class core {
 		std::string           _app_name;
 		std::filesystem::path _local_data;
@@ -49,6 +51,6 @@ namespace tonplugins::core {
 		void log(std::string_view format, ...);
 
 		public:
-		static std::shared_ptr<tonplugins::core::core> instance(std::string app_name = "");
+		static std::shared_ptr<tonplugins::core> instance(std::string app_name = "");
 	};
-} // namespace tonplugins::core
+} // namespace tonplugins
