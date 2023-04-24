@@ -254,10 +254,10 @@ function(define_target p_name p_type)
 
 	target_include_directories(${p_name}
 		PRIVATE
-			source
+			"${${p_name}_SOURCE_DIR}/source"
 			"${${p_name}_BINARY_DIR}/source"
 		PUBLIC
-			include
+			"${${p_name}_SOURCE_DIR}/include"
 			"${${p_name}_BINARY_DIR}/include"
 	)
 
@@ -292,10 +292,14 @@ function(define_target p_name p_type)
 			$<$<CONFIG:RelWithDebInfo>:/MT>
 			$<$<CONFIG:MinSizeRel>:/MT>
 		)
-		# We want C++, not MSVC++.
 		target_compile_definitions(${p_name} PRIVATE
+			# We want C++, not MSVC++.
 			_CRT_SECURE_NO_WARNINGS
 			_ENABLE_EXTENDED_ALIGNED_STORAGE
+			# Windows.h fixes
+			WIN32_LEAN_AND_MEAN
+			NOMINMAX
+			NOINOUT
 		)
 	endif()
 
