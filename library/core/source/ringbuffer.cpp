@@ -10,6 +10,8 @@
 #include <Windows.h>
 // Must be after Windows.h
 #include <VersionHelpers.h>
+// Fix missing VirtualAlloc2
+#pragma comment(lib, "mincore")
 #else
 #include <unistd.h>
 #endif
@@ -91,7 +93,15 @@ tonplugins::memory::ring<T>::ring(size_t minimum_size)
 		// Split the region in half.
 		bool split = false;
 		for (size_t attempt = 0; (attempt < max_attempts) && (split == false); attempt++) {
+// This is legal, but MSVC will complain about it.
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 28160 6333)
+#endif
 			split = (VirtualFree(placeholder.get(), real_size, MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER) == TRUE);
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 		}
 		if (!split) {
 			throw std::runtime_error("Failed to split virtually continuous memory in half.");
@@ -107,10 +117,7 @@ tonplugins::memory::ring<T>::ring(size_t minimum_size)
 		if (!id->left) {
 			throw std::runtime_error("Failed to map buffer into left half of virtually continuous memory.");
 		} else {
-			// From now on, we're only allowed to free the second half.
-			/* placeholder = std::unique_ptr<void>(reinterpret_cast<uint8_t*>(placeholder.release()) + real_size, [](void* ptr) {
-				VirtualFree(ptr, 0, MEM_RELEASE);
-			});*/
+			placeholder = std::unique_ptr<void, virtualfree>(reinterpret_cast<uint8_t*>(placeholder.release()) + real_size);
 		}
 
 		for (size_t attempt = 0; (attempt < max_attempts) && (!id->right); attempt++) {
