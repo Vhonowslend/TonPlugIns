@@ -50,5 +50,5 @@ jobs:
     - name: "Artifacts"
       uses: actions/upload-artifact@v1
       with:
-        name: "windows-${{ matric.CMAKE_GENERATOR_PLATFORM }}"
+        name: "windows-${{ matrix.CMAKE_GENERATOR_PLATFORM }}"
         path: "${{ github.workspace }}/build/distrib"
