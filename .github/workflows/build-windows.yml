@@ -29,7 +29,7 @@ jobs:
     runs-on: "windows-2022"
     name: "Windows (${{ matrix.architecture }})"
     env:
-      cache_name: "${{ env.CACHE_VERSION }}-windows-${{ matrix.architecture }}"
+      CACHE_VERSION: "windows-${{ matrix.architecture }}"
       CMAKE_GENERATOR_PLATFORM: "${{ matrix.CMAKE_GENERATOR_PLATFORM }}"
     steps:
     - name: "Clone"
@@ -43,7 +43,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: '${{ runner.workspace }}/third-party/boost'
-        key: '${{ env.cache_name }}-boost-${{ env.BOOST_VERSION }}-'
+        key: '${{ env.CACHE_VERSION }}-${{ env.CACHE_VERSION }}-boost-${{ env.BOOST_VERSION }}-'
     - name: Boost
       shell: bash
       run: |
