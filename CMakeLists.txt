@@ -34,11 +34,11 @@ endif()
 ################################################################################
 # Options
 ################################################################################
-set(ENABLE_FULL_VERSION ON CACHE BOOL "Enable the full feature set? (Do not enable for Demo/Free builds!)")
-set(ENABLE_STEINBERG_VST3 ON CACHE BOOL "Enable Steinberg VST3.x support?")
-set(ENABLE_STEINBERG_VST2 OFF CACHE BOOL "Enable Steinberg VST2.x support?")
 
+# Allow overriding version
 set(VERSION "" CACHE STRING "Override detected or pre-configured version with this string. Accepts strings in CMake and SemVer 2.0.0 format.")
+
+set(ENABLE_FULL_VERSION ON CACHE BOOL "Enable the full feature set? (Do not enable for Demo/Free builds!)")
 
 ################################################################################
 # Version
@@ -203,6 +203,64 @@ if(NOT ENABLE_FULL_VERSION)
 	set(PROJECT_TITLE "${PROJECT_TITLE} (Demo)")
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	# MacOS: We must target MacOS 10.15 or later.
+	if(CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS 10.15)
+		set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15 CACHE STRING "" FORCE)
+	endif()
+
+	# MacOS: We must target all architectures always.
+	set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "" FORCE)
+endif()
+
+# Detect the target architecture. (CMAKE_SYSTEM_ARCHITECTURE can't be trusted.)
+try_compile(ARCH_RES 
+	SOURCES "${PROJECT_SOURCE_DIR}/cmake/architecture.c"
+	NO_LOG
+	OUTPUT_VARIABLE ARCH_OUT
+)
+string(REGEX MATCH "TARGET_SYSTEM_ARCHITECTURE=([a-zA-Z0-9_\-]+)" ARCH_OUT ${ARCH_OUT})
+set(TARGET_SYSTEM_ARCHITECTURE "${CMAKE_MATCH_1}")
+if(TARGET_SYSTEM_ARCHITECTURE STREQUAL "x86_64")
+	set(TARGET_SYSTEM_IS_X86 ON)
+	set(TARGET_SYSTEM_IS_64BIT ON)
+elseif(TARGET_SYSTEM_ARCHITECTURE STREQUAL "x86_32")
+	set(TARGET_SYSTEM_IS_X86 ON)
+	set(TARGET_SYSTEM_IS_64BIT OFF)
+elseif(TARGET_SYSTEM_ARCHITECTURE STREQUAL "arm64ec")
+	set(TARGET_SYSTEM_IS_ARM ON)
+	set(TARGET_SYSTEM_IS_X86 ON)
+	set(TARGET_SYSTEM_IS_64BIT ON)
+elseif(TARGET_SYSTEM_ARCHITECTURE STREQUAL "arm64")
+	set(TARGET_SYSTEM_IS_ARM ON)
+	set(TARGET_SYSTEM_IS_64BIT ON)
+elseif(TARGET_SYSTEM_ARCHITECTURE MATCHES "^arm")
+	set(TARGET_SYSTEM_IS_ARM ON)
+	set(TARGET_SYSTEM_IS_64BIT OFF)
+else()
+endif()
+
+# Set default Install prefix
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
+	if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+		set(CMAKE_INSTALL_PREFIX "$ENV{COMMONPROGRAMFILES}/" CACHE PATH "Install location" FORCE)
+	endif()
+	set(CMAKE_INSTALL_PREFIX_VST3 "VST3")
+	set(CMAKE_INSTALL_PREFIX_VST2 "VST2")
+elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+	if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+		set(CMAKE_INSTALL_PREFIX "/Library/Audio/Plug-ins/" CACHE PATH "Install location" FORCE)
+	endif()
+	set(CMAKE_INSTALL_PREFIX_VST3 "VST3")
+	set(CMAKE_INSTALL_PREFIX_VST2 "VST2")
+else()
+	if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+		set(CMAKE_INSTALL_PREFIX "/usr/lib/" CACHE PATH "Install location" FORCE)
+	endif()
+	set(CMAKE_INSTALL_PREFIX_VST3 "vst3")
+	set(CMAKE_INSTALL_PREFIX_VST2 "vst2")
+endif()
+
 ################################################################################
 # APIs
 ################################################################################
@@ -301,6 +359,17 @@ function(define_target p_name p_type)
 			NOMINMAX
 			NOINOUT
 		)
+	endif()
+
+	# Architecture and Bitness
+	if(TARGET_SYSTEM_IS_ARM)
+		target_compile_definitions(${p_name} PUBLIC TONPLUGINS_ARCH_ARM)
+	endif()
+	if(TARGET_SYSTEM_IS_X86)
+		target_compile_definitions(${p_name} PUBLIC TONPLUGINS_ARCH_X86)
+	endif()
+	if(TARGET_SYSTEM_IS_64BIT)
+		target_compile_definitions(${p_name} PUBLIC TONPLUGINS_ARCH_64BIT)
 	endif()
 
 	# Always use fast math over precise math.
@@ -420,14 +489,19 @@ function(setup_target p_name)
 	# Common structure between all plug-ins.
 	file(GLOB_RECURSE TEMPLATES FOLLOW_SYMLINKS CONFIGURE_DEPENDS "templates/*")
 	source_group(TREE "${${p_name}_SOURCE_DIR}/templates" PREFIX "Templates" FILES ${TEMPLATES})
+
 	file(GLOB_RECURSE RESOURCES FOLLOW_SYMLINKS CONFIGURE_DEPENDS "resources/*")
-	source_group(TREE "${${p_name}_SOURCE_DIR}/resources" PREFIX "Resources" FILES ${GENERATED_PUBLIC})
+	source_group(TREE "${${p_name}_SOURCE_DIR}/resources" PREFIX "Resources" FILES ${RESOURCES})
+	file(GLOB_RECURSE RESOURCES FOLLOW_SYMLINKS CONFIGURE_DEPENDS "${${p_name}_BINARY_DIR}/resources/*")
+	source_group(TREE "${${p_name}_BINARY_DIR}/resources" PREFIX "Resources/Generated" FILES ${GENERATED_RESOURCES})
+
 	file(GLOB_RECURSE SOURCE_PRIVATE FOLLOW_SYMLINKS CONFIGURE_DEPENDS "source/*")
 	source_group(TREE "${${p_name}_SOURCE_DIR}/source" PREFIX "Source Files" FILES ${SOURCE_PRIVATE})
-	file(GLOB_RECURSE SOURCE_PUBLIC FOLLOW_SYMLINKS CONFIGURE_DEPENDS "include/*")
-	source_group(TREE "${${p_name}_SOURCE_DIR}/include" PREFIX "Header Files" FILES ${SOURCE_PUBLIC})
 	file(GLOB_RECURSE GENERATED_PRIVATE FOLLOW_SYMLINKS CONFIGURE_DEPENDS "${${p_name}_BINARY_DIR}/source/*")
 	source_group(TREE "${${p_name}_BINARY_DIR}/source" PREFIX "Source Files/Generated" FILES ${GENERATED_PRIVATE})
+
+	file(GLOB_RECURSE SOURCE_PUBLIC FOLLOW_SYMLINKS CONFIGURE_DEPENDS "include/*")
+	source_group(TREE "${${p_name}_SOURCE_DIR}/include" PREFIX "Header Files" FILES ${SOURCE_PUBLIC})
 	file(GLOB_RECURSE GENERATED_PUBLIC FOLLOW_SYMLINKS CONFIGURE_DEPENDS "${${p_name}_BINARY_DIR}/include/*")
 	source_group(TREE "${${p_name}_BINARY_DIR}/include" PREFIX "Header Files/Generated" FILES ${GENERATED_PUBLIC})
 
@@ -435,6 +509,7 @@ function(setup_target p_name)
 		PRIVATE
 			${TEMPLATES}
 			${RESOURCES}
+			${GENERATED_RESOURCES}
 			${SOURCE_PRIVATE}
 			${GENERATED_PRIVATE}
 		PUBLIC
@@ -442,7 +517,7 @@ function(setup_target p_name)
 			${GENERATED_PUBLIC}
 	)
 
-	set_source_files_properties(${TEMPLATES} ${RESOURCES} PROPERTIES
+	set_source_files_properties(${TEMPLATES} ${RESOURCES} ${GENERATED_RESOURCES} PROPERTIES
 		HEADER_FILE_ONLY ON
 	)
 
@@ -476,6 +551,64 @@ function(define_library p_name)
 	)
 endfunction()
 
+function(install_plugin_vst3 p_name)
+	# Install as a VST3.x plug-in
+	set(_path "${CMAKE_INSTALL_PREFIX_VST3}/TonPlugins/${p_name}.vst3")
+	if(NOT APPLE)
+		set(_content_path "${_path}/Contents")
+		set(_resource_path "${_content_path}/Resources")
+		set(_binary_path "${_content_path}/")
+		if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+			if(TARGET_SYSTEM_IS_X86 AND TARGET_SYSTEM_IS_ARM)
+				set(_binary_path "${_binary_path}arm64ec")
+			elseif(TARGET_SYSTEM_IS_X86 AND TARGET_SYSTEM_IS_64BIT)
+				set(_binary_path "${_binary_path}x86_64")
+			elseif(TARGET_SYSTEM_IS_ARM AND TARGET_SYSTEM_IS_64BIT)
+				set(_binary_path "${_binary_path}arm64")
+			elseif(TARGET_SYSTEM_IS_X86)
+				set(_binary_path "${_binary_path}x86")
+			elseif(TARGET_SYSTEM_IS_ARM)
+				set(_binary_path "${_binary_path}arm")
+			else()
+				set(_binary_path "${_binary_path}unknown")
+			endif()
+			set(_binary_path "${_binary_path}-win")
+		elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+			if(TARGET_SYSTEM_IS_X86 AND TARGET_SYSTEM_IS_64BIT)
+				set(_binary_path "${_binary_path}x86_64")
+			elseif(TARGET_SYSTEM_IS_ARM AND TARGET_SYSTEM_IS_64BIT)
+				set(_binary_path "${_binary_path}aarch64")
+			elseif(TARGET_SYSTEM_IS_X86)
+				set(_binary_path "${_binary_path}i386")
+			elseif(TARGET_SYSTEM_IS_ARM)
+				set(_binary_path "${_binary_path}arm")
+			else()
+				set(_binary_path "${_binary_path}unknown")
+			endif()
+			set(_binary_path "${_binary_path}-linux")
+		elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+			set(_binary_path "${_binary_path}MacOS")
+		else()
+			set(_binary_path "${_binary_path}Unknown")
+		endif()
+		# - Resources
+		install(DIRECTORY "${${p_name}_SOURCE_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
+		install(DIRECTORY "${${p_name}_BINARY_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
+		# - Binaries
+		install(TARGETS ${p_name}
+			LIBRARY DESTINATION "${_binary_path}"
+			RUNTIME DESTINATION "${_binary_path}"
+		)
+		if(MSVC)
+			install(FILES "$<TARGET_PDB_FILE:${PROJECT_NAME}>" DESTINATION "${_binary_path}" OPTIONAL)
+		endif()
+	else()
+		install(TARGETS ${p_name}
+			BUNDLE DESTINATION "." COMPONENT ${p_name}
+		)
+	endif()
+endfunction()
+
 function(define_plugin p_name)
 	message(STATUS "Defining plugin '${p_name}'...")
 	define_target(${p_name} MODULE)
@@ -491,6 +624,9 @@ function(define_plugin p_name)
 		# TonPlugins
 		TonPlugIns::Core
 	)
+
+	# Install for various supported APIs
+	install_plugin_vst3(${p_name})
 endfunction()
 
 ################################################################################
