@@ -23,14 +23,13 @@ jobs:
         architecture: [ "arm64", "x64" ]
         include:
           - architecture: arm64
-            cache_name: "${{ env.CACHE_VERSION }}-windows-arm64"
             CMAKE_GENERATOR_PLATFORM: "ARM64EC"
           - architecture: x64
-            cache_name: "${{ env.CACHE_VERSION }}-windows-x64"
             CMAKE_GENERATOR_PLATFORM: "x64"
     runs-on: "windows-2022"
     name: "Windows (${{ matrix.architecture }})"
     env:
+      cache_name: "${{ env.CACHE_VERSION }}-windows-${{ matrix.architecture }}"
       CMAKE_GENERATOR_PLATFORM: "${{ matrix.CMAKE_GENERATOR_PLATFORM }}"
     steps:
     - name: "Clone"
@@ -44,7 +43,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: '${{ runner.workspace }}/third-party/boost'
-        key: '${{ matrix.cache_name }}-boost-${{ env.BOOST_VERSION }}-'
+        key: '${{ env.cache_name }}-boost-${{ env.BOOST_VERSION }}-'
     - name: Boost
       shell: bash
       run: |
