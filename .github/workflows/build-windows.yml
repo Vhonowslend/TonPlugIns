@@ -1,0 +1,54 @@
+name: "Build on Windows"
+
+on:
+  push:
+    branches:
+      - '*'
+    tags:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
+
+env:
+  CMAKE_GENERATOR: "Visual Studio 17 2022"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        CMAKE_GENERATOR_PLATFORM: [ "ARM64EC", "x64" ]
+    runs-on: "windows-2022"
+    name: "Windows (${{ matrix.CMAKE_GENERATOR_PLATFORM}})"
+    env:
+      CMAKE_GENERATOR_PLATFORM: "${{ matrix.CMAKE_GENERATOR_PLATFORM }}"
+    steps:
+    - name: "Clone"
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: "Configure"
+      continue-on-error: true
+      shell: bash
+      run: |
+        cmake \
+          -S "${{ github.workspace }}" \
+          -B "${{ github.workspace }}/build/devel" \
+          -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/build/distrib"
+
+    - name: "Build"
+      continue-on-error: true
+      shell: bash
+      env:
+        CMAKE_BUILD_TYPE: "RelWithDebInfo"
+      run: |
+        cmake --build "build/devel" --config ${{ env.CMAKE_BUILD_TYPE }} --target install
+
+    - name: "Artifacts"
+      uses: actions/upload-artifact@v1
+      with:
+        name: "windows-${{ matric.CMAKE_GENERATOR_PLATFORM }}"
+        path: "${{ github.workspace }}/build/distrib"
