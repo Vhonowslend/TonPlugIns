@@ -12,6 +12,7 @@ namespace tonplugins::memory {
 	class ring {
 		T*     _buffer;
 		size_t _size;
+
 		size_t _write_pos;
 		size_t _read_pos;
 
@@ -21,38 +22,59 @@ namespace tonplugins::memory {
 		ring(size_t elements);
 		~ring();
 
-		/** Read up to 'length' elements from the ring buffer.
-		 * 
+		/** Write data into the ring buffer.
+		 *
+		 * If the read pointer is inside the region to be written, it will be advanced to be just outside of that region.
+		 *
+		 * @argument size The size (in elements) of the buffer to be written, limited by the ring buffer size.
+		 * @argument buffer The buffer to copy data from. Must be at least the size specified in length.
+		 * @return The number of elements written into the ring buffer.
 		 */
-		size_t read(size_t length, T* buffer);
+		size_t write(size_t size, T const* buffer);
 
-		/** Read up to 'buffer.size()' elements from the ring buffer.
-		 * 
-		 */
-		size_t read(std::vector<T>& buffer);
+		size_t write(std::vector<T> const& buffer, size_t offset = 0)
+		{
+			return write(buffer.size(), &(buffer.at(offset)));
+		}
 
-		/** Write up to 'length' elements into the ring buffer.
-		 * 
-		 */
-		size_t write(size_t length, T const* buffer);
+		/** Peek at data in the ring buffer.
+		 *
+		 * \param[in] size The minimum length of data that should be available.
+		 * \return `nullptr` if the length constraint can't be fulfilled, otherwise a pointer.
+         */
+		T* peek(size_t size);
 
-		/** Write up to 'buffer.size()' elements into the ring buffer.
-		 * 
+		/** Read data from the ring buffer.
+		 *
+		 * @argument size The size (in elements) of the buffer to be read to, limited by the ring buffer size.
+		 * @argument buffer The buffer to copy data into. Must be at least the size specified in length.
+		 * @return The number of bytes read.
 		 */
-		size_t write(std::vector<T> const& buffer);
+		size_t read(size_t size, T* buffer);
+
+		size_t read(std::vector<T>& buffer, size_t offset = 0)
+		{
+			return read(buffer.size(), &(buffer.at(offset)));
+		}
 
 		/** Free space of the ring buffer in number of elements.
-		 * 
+		 *
+		 * @return Number of elements currently considered free.
 		 */
-		size_t free();
+		size_t free()
+		{
+			return size() - used();
+		}
 
 		/** Used space of the ring buffer in number of elements.
-		 * 
+		 *
+		 * @return Number of elements currently considered used.
 		 */
 		size_t used();
 
 		/** Total size of the ring buffer in number of elements.
-		 * 
+		 *
+		 * @return Number of elements this ring buffer can hold.
 		 */
 		size_t size();
 	};

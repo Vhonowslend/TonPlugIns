@@ -48,19 +48,18 @@ struct virtualfree {
 };
 
 #endif
-
 template<typename T>
-tonplugins::memory::ring<T>::ring(size_t elements)
+tonplugins::memory::ring<T>::ring(size_t size)
 	: _write_pos(0), _read_pos(0)
 {
 	// Calculate the proper size.
 	size_t page = get_minimum_page_size();
-	this->_size = elements;
-	this->_size *= sizeof(T);  // Convert to Bytes
-	this->_size += (page - 1); // Prepare for rounding up
-	this->_size /= page;       // Round towards zero and convert to Pages
-	this->_size *= page;       // Convert to Bytes
-	this->_size /= sizeof(T);  // Convert to Elements.
+	_size       = size;
+	_size *= sizeof(T);  // Convert to Bytes
+	_size += (page - 1); // Prepare for rounding up
+	_size /= page;       // Round towards zero and convert to Pages
+	_size *= page;       // Convert to Bytes
+	_size /= sizeof(T);  // Convert to Elements.
 
 	// Allocate the internal data structure.
 	auto id        = std::make_shared<internal_data>();
@@ -70,7 +69,7 @@ tonplugins::memory::ring<T>::ring(size_t elements)
 	constexpr size_t max_attempts = 255;
 
 	if (IsWindows10OrGreater()) {
-		size_t real_size = this->_size * sizeof(T);
+		size_t real_size = _size * sizeof(T);
 
 		// Create a pagefile backed section for the buffer.
 		for (size_t attempt = 0; (attempt < max_attempts) && (!id->area); attempt++) {
@@ -158,56 +157,94 @@ tonplugins::memory::ring<T>::~ring()
 template<typename T>
 size_t tonplugins::memory::ring<T>::write(size_t size, T const* buffer)
 {
-	size_t length = std::min(size, this->size() - this->used());
-	memcpy(this->_buffer + this->_write_pos, buffer, sizeof(T) * length);
-	this->_write_pos = (this->_write_pos + length) % this->_size;
-	return length;
+	// Early-Exit if something is invalid.
+	if ((!buffer) || (size == 0))
+		return 0;
+
+	// Limit the size of the write to the buffer size.
+	size_t elements = std::min(size, _size);
+
+	// Copy data from the buffer into the ring.
+	memcpy(_buffer + _write_pos, buffer, sizeof(T) * elements);
+
+	// Advance the write position by the number of elements, wrapped into the actual buffer size.
+	size_t write_old = _write_pos;
+	size_t write_new = write_old + elements;
+	_write_pos       = write_new % _size;
+
+	// Advance the read position if we just overwrite part of it.
+	if ((write_old < _read_pos) && (write_new >= _read_pos)) {
+		// (w0 < r) && (w1 >= r), c=10
+		//Read caught up to write:
+		// s=5, r=0, w=0: (0 < 0) && (5 >= 0) = false (should be false)
+		//Write caught up to read:
+		// s=5, r=3, w=0: (0 < 3) && (5 >= 3) = true (should be true)
+		_read_pos = _write_pos + 1;
+		// Adding 1 allows us to differentiate between read catching up to write, and write catching up to read.
+		// If write catches up to read, then read will be 1 ahead of write. Thus (w0 < r) && (w1 >= r) can be true.
+		// If read catches up to write, then read will be exactly on write. Thus (w0 < r) && (w1 >= r) can be false.
+		// Otherwise, we would have ambiguity between the two cases.
+	}
+
+	// Return the length actually written.
+	return elements;
 }
 
 template<typename T>
-size_t tonplugins::memory::ring<T>::write(std::vector<T> const& buffer)
+T* tonplugins::memory::ring<T>::peek(size_t size)
 {
-	return this->write(buffer.size(), buffer.data());
+	// Early-Exit if something is invalid.
+	if ((size == 0) || (size > used())) {
+		return nullptr;
+	}
+
+	// Calculate the pointer to return.
+	T* ptr = _buffer + _read_pos;
+
+	// Advance the read position and wrap it back into the actual buffer size.
+	_read_pos = (_read_pos + size) % _size;
+
+	// Return the pointer.
+	return ptr;
 }
 
 template<typename T>
 size_t tonplugins::memory::ring<T>::read(size_t size, T* buffer)
 {
-	size_t length = std::min(this->used(), size);
-	memcpy(buffer, this->_buffer + this->_read_pos, sizeof(T) * length);
-	this->_read_pos = (this->_read_pos + length) % this->_size;
-	return length;
-}
+	// Early-Exit if something is invalid.
+	if ((!buffer) || (size == 0))
+		return 0;
 
-template<typename T>
-size_t tonplugins::memory::ring<T>::read(std::vector<T>& buffer)
-{
-	return this->read(buffer.size(), buffer.data());
-}
+	// Limit the length of the read to the available used space.
+	size = std::min(used(), size);
 
-template<typename T>
-size_t tonplugins::memory::ring<T>::free()
-{
-	return this->size() - this->used();
+	// Copy data from the ring into the buffer.
+	memcpy(buffer, _buffer + _read_pos, sizeof(T) * size);
+
+	// Advance the read position and wrap it back into the actual buffer size.
+	_read_pos = (_read_pos + size) % _size;
+
+	// Return the length actually read.
+	return size;
 }
 
 template<typename T>
 size_t tonplugins::memory::ring<T>::used()
 {
 	// Is the write pointer in front of the read pointer?
-	if (this->_write_pos > this->_read_pos) {
+	if (_write_pos > _read_pos) {
 		// If yes, just subtract the read position from the write position.
-		return this->_write_pos - this->_read_pos;
+		return _write_pos - _read_pos;
 	} else {
 		// Otherwise, treat the write position as a number of elements, and the read position needs to be subtracted from the size.
-		return this->_write_pos + (this->_size - this->_read_pos);
+		return _write_pos + (_size - _read_pos);
 	}
 }
 
 template<typename T>
 size_t tonplugins::memory::ring<T>::size()
 {
-	return this->_size;
+	return _size;
 }
 
 template class tonplugins::memory::ring<float>;
