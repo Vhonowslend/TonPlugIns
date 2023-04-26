@@ -5,7 +5,7 @@
 std::string const tonplugins::version::to_string()
 {
 	char buffer[256] = {0};
-	snprintf(buffer, sizeof(buffer), "%4d.%4d.%4d.%4d%s-%s", major, minor, patch, tweak, prerelease.c_str(),
+	snprintf(buffer, sizeof(buffer), "%d.%d.%d.%d%s-%s", major, minor, patch, tweak, prerelease.c_str(),
 			 commit.c_str());
 	return std::string(buffer);
 }
