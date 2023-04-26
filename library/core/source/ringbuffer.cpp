@@ -18,7 +18,7 @@
 
 #include "warning-enable.hpp"
 
-size_t get_page_size()
+size_t get_minimum_page_size()
 {
 #ifdef _WIN32
 	SYSTEM_INFO info = {0};
@@ -58,8 +58,8 @@ tonplugins::memory::ring<T>::ring(size_t minimum_size)
 	_internal_data = id;
 
 	// Align the size with the page size to allow memory mapping hacks.
-	size_t page = get_page_size();
-	_size       = (minimum_size + (page - 1)) / page;
+	size_t page = get_minimum_page_size();
+	_size       = (minimum_size + (page - 1)) / page * page;
 
 #ifdef _WIN32
 	constexpr size_t max_attempts = 255;
@@ -98,7 +98,7 @@ tonplugins::memory::ring<T>::ring(size_t minimum_size)
 #pragma warning(push)
 #pragma warning(disable : 28160 6333)
 #endif
-			split = (VirtualFree(placeholder.get(), real_size, MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER) == TRUE);
+			split = (VirtualFree(placeholder.get(), real_size, MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER) != FALSE);
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
@@ -121,7 +121,7 @@ tonplugins::memory::ring<T>::ring(size_t minimum_size)
 		}
 
 		for (size_t attempt = 0; (attempt < max_attempts) && (!id->right); attempt++) {
-			void* ptr = MapViewOfFile3(id->area.get(), nullptr, reinterpret_cast<uint8_t*>(placeholder.get()) + real_size, 0, real_size, MEM_REPLACE_PLACEHOLDER, PAGE_READWRITE, nullptr, 0);
+			void* ptr = MapViewOfFile3(id->area.get(), nullptr, placeholder.get(), 0, real_size, MEM_REPLACE_PLACEHOLDER, PAGE_READWRITE, nullptr, 0);
 			if (ptr) {
 				id->right = std::shared_ptr<void>(ptr, [](void* ptr) { UnmapViewOfFile(ptr); });
 			}
