@@ -21,6 +21,9 @@ namespace tonplugins::tonstream {
 
 		Steinberg::tresult PLUGIN_API setChannelContextInfos(Steinberg::Vst::IAttributeList* list) override;
 
+		public /* IEditController */:
+		Steinberg::IPlugView* PLUGIN_API createView(Steinberg::FIDString name) override;
+
 		public:
 		OBJ_METHODS(controller, Steinberg::Vst::EditControllerEx1)
 		DEFINE_INTERFACES

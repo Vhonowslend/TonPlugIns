@@ -3,6 +3,10 @@
 #include "controller.hpp"
 #include <core.hpp>
 
+#include <warning-disable.hpp>
+#include <vstgui/plugin-bindings/vst3editor.h>
+#include <warning-enable.hpp>
+
 tonplugins::tonstream::controller::controller(void* data)
 	: Steinberg::Vst::EditControllerEx1(), Steinberg::Vst::ChannelContext::IInfoListener()
 {
@@ -25,6 +29,14 @@ Steinberg::tresult PLUGIN_API tonplugins::tonstream::controller::setComponentSta
 Steinberg::tresult PLUGIN_API tonplugins::tonstream::controller::setChannelContextInfos(Steinberg::Vst::IAttributeList* list)
 {
 	return Steinberg::kResultOk;
+}
+
+Steinberg::IPlugView* PLUGIN_API tonplugins::tonstream::controller::createView(Steinberg::FIDString name)
+{
+	if (strcmp(name, Steinberg::Vst::ViewType::kEditor) == 0) {
+		return new VSTGUI::VST3Editor(this, "view", "myEditor.uidesc");
+	}
+	return 0;
 }
 
 Steinberg::FUnknown* tonplugins::tonstream::controller::create(void* data)
