@@ -663,8 +663,13 @@ function(define_plugin p_name)
 	target_link_libraries(${p_name} PRIVATE
 		# Steinberg VST3 SDK
 		sdk
+		# Steinberg VSTGUI
+		vstgui_support
 		# TonPlugins
 		TonPlugIns::Core
+	)
+	target_compile_definitions(${p_name} PUBLIC
+		$<$<CONFIG:Debug>:VSTGUI_LIVE_EDITING=1>
 	)
 
 	setup_vst3_plugin(${p_name})
