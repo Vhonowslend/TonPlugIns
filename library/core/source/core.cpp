@@ -267,18 +267,25 @@ void tonplugins::core::log(std::string_view format, ...)
 		{
 			const char* local_format = "%s %s\n";
 
-			size_t len = static_cast<size_t>(snprintf(nullptr, 0, local_format, time.data(), format)) + 1;
+			size_t len = static_cast<size_t>(snprintf(nullptr, 0, local_format, time.c_str(), format.data())) + 1;
 			format_buffer.resize(len);
-			snprintf(format_buffer.data(), format_buffer.size(), local_format, time.data(), format);
+			snprintf(format_buffer.data(), format_buffer.size(), local_format, time.c_str(), format.data());
 		};
 
 		{
 			va_list args;
+			va_list args2;
+
 			va_start(args, format);
+			va_copy(args2, args);
 			size_t len = static_cast<size_t>(vsnprintf(nullptr, 0, format_buffer.data(), args)) + 1;
-			string_buffer.resize(len);
-			vsnprintf(string_buffer.data(), string_buffer.size(), format_buffer.data(), args);
 			va_end(args);
+
+			string_buffer.resize(len);
+
+			va_start(args2, format);
+			vsnprintf(string_buffer.data(), string_buffer.size(), format_buffer.data(), args2);
+			va_end(args2);
 		}
 
 		converted = std::string{string_buffer.data()};
@@ -331,7 +338,7 @@ std::shared_ptr<tonplugins::core> tonplugins::core::instance(std::string app_nam
 	std::lock_guard<decltype(mtx)> lock(mtx);
 	inst = winst.lock();
 	if (!inst) {
-		inst  = std::shared_ptr<tonplugins::core>(new tonplugins::core(app_name));
+		inst  = std::shared_ptr<tonplugins::core>(new tonplugins::core(std::move(app_name)));
 		winst = inst;
 	}
 	return inst;
