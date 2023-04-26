@@ -1,6 +1,7 @@
 // Copyright 2023 Michael Fabian 'Xaymar' Dirks < info @xaymar.com>
 
 #include "controller.hpp"
+#include <core.hpp>
 
 tonplugins::tonstream::controller::controller(void* data)
 	: Steinberg::Vst::EditControllerEx1(), Steinberg::Vst::ChannelContext::IInfoListener()
@@ -28,5 +29,12 @@ Steinberg::tresult PLUGIN_API tonplugins::tonstream::controller::setChannelConte
 
 Steinberg::FUnknown* tonplugins::tonstream::controller::create(void* data)
 {
-	return reinterpret_cast<Steinberg::FUnknown*>(new tonplugins::tonstream::controller(data));
+	try {
+		return static_cast<Steinberg::Vst::IEditController*>(new tonplugins::tonstream::controller(data));
+	} catch (std::exception const& ex) {
+		tonplugins::core::instance()->log("%s: %s", __FUNCTION_SIG__, ex.what());
+	} catch (...) {
+		tonplugins::core::instance()->log("%s: An unknown error occurred.");
+	}
+	return nullptr;
 }
