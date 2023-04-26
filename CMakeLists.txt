@@ -551,7 +551,32 @@ function(define_library p_name)
 	)
 endfunction()
 
-function(install_plugin_vst3 p_name)
+function(setup_vst3_plugin p_name)
+	# Add some special files
+	if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+		target_sources(${p_name} PRIVATE
+			"${CMAKE_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/main/macexport.exp"
+		)		
+	endif()
+
+	# VST3 Specific requirements
+	set_target_properties(${p_name} PROPERTIES
+		# MacOS requires this to be a bundle.
+		BUNDLE ON
+		BUNDLE_EXTENSION ".vst3"
+	)
+	if(WIN32)
+		set_target_properties(${p_name} PROPERTIES
+			# VST3 musts have ".vst3" at the end of their name.
+			SUFFIX ".vst3"
+		)
+	elseif(APPLE)
+		set_target_properties(${p_name} PROPERTIES
+			# VST3 musts have no suffix.
+			SUFFIX ""
+		)
+	endif()
+	
 	# Install as a VST3.x plug-in
 	set(_path "${CMAKE_INSTALL_PREFIX_VST3}/TonPlugins/${p_name}.vst3")
 	if(NOT APPLE)
@@ -602,11 +627,27 @@ function(install_plugin_vst3 p_name)
 		if(MSVC)
 			install(FILES "$<TARGET_PDB_FILE:${PROJECT_NAME}>" DESTINATION "${_binary_path}" OPTIONAL)
 		endif()
+		# - Extra Files
+		if(D_PLATFORM_WINDOWS)
+			# 'desktop.ini'
+			#install(FILES "templates/desktop.ini" DESTINATION "${VST3_INSTALL_PREFIX}")
+			#install(CODE "execute_process(COMMAND attrib +S +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/desktop.ini\")")
+
+			# 'icon.ico'
+			#install(FILES "templates/icon.ico" DESTINATION "${VST3_INSTALL_PREFIX}")
+			#install(CODE "execute_process(COMMAND attrib +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/icon.ico\")")
+		endif()
 	else()
 		install(TARGETS ${p_name}
 			BUNDLE DESTINATION "." COMPONENT ${p_name}
 		)
 	endif()
+endfunction()
+
+function(setup_vst2_plugin p_name)
+endfunction()
+
+function(setup_aax_plugin p_name)
 endfunction()
 
 function(define_plugin p_name)
@@ -615,6 +656,7 @@ function(define_plugin p_name)
 	set_target_properties(${p_name} PROPERTIES
 		FOLDER "TonPlugins/Plugins"
 		PROJECT_LABEL "${p_name}"
+
 	)
 
 	# Add the common library to the whole mix.
@@ -625,8 +667,9 @@ function(define_plugin p_name)
 		TonPlugIns::Core
 	)
 
-	# Install for various supported APIs
-	install_plugin_vst3(${p_name})
+	setup_vst3_plugin(${p_name})
+	setup_vst2_plugin(${p_name})
+	setup_aax_plugin(${p_name})
 endfunction()
 
 ################################################################################
