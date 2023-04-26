@@ -10,16 +10,15 @@
 namespace tonplugins::memory {
 	template<typename T>
 	class ring {
+		T*     _buffer;
 		size_t _size;
 		size_t _write_pos;
 		size_t _read_pos;
 
-		T* _buffer;
-
 		std::shared_ptr<void> _internal_data;
 
 		public:
-		ring(size_t minimum_size);
+		ring(size_t elements);
 		~ring();
 
 		/** Read up to 'length' elements from the ring buffer.

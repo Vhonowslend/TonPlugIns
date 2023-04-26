@@ -50,16 +50,21 @@ struct virtualfree {
 #endif
 
 template<typename T>
-tonplugins::memory::ring<T>::ring(size_t minimum_size)
+tonplugins::memory::ring<T>::ring(size_t elements)
 	: _write_pos(0), _read_pos(0)
 {
+	// Calculate the proper size.
+	size_t page = get_minimum_page_size();
+	this->_size = elements;
+	this->_size *= sizeof(T);  // Convert to Bytes
+	this->_size += (page - 1); // Prepare for rounding up
+	this->_size /= page;       // Round towards zero and convert to Pages
+	this->_size *= page;       // Convert to Bytes
+	this->_size /= sizeof(T);  // Convert to Elements.
+
 	// Allocate the internal data structure.
 	auto id        = std::make_shared<internal_data>();
 	_internal_data = id;
-
-	// Align the size with the page size to allow memory mapping hacks.
-	size_t page = get_minimum_page_size();
-	_size       = (minimum_size + (page - 1)) / page * page;
 
 #ifdef _WIN32
 	constexpr size_t max_attempts = 255;
@@ -155,7 +160,7 @@ size_t tonplugins::memory::ring<T>::write(size_t size, T const* buffer)
 {
 	size_t length = std::min(size, this->size() - this->used());
 	memcpy(this->_buffer + this->_write_pos, buffer, sizeof(T) * length);
-	this->_write_pos += length;
+	this->_write_pos = (this->_write_pos + length) % this->_size;
 	return length;
 }
 
@@ -170,7 +175,7 @@ size_t tonplugins::memory::ring<T>::read(size_t size, T* buffer)
 {
 	size_t length = std::min(this->used(), size);
 	memcpy(buffer, this->_buffer + this->_read_pos, sizeof(T) * length);
-	this->_read_pos += length;
+	this->_read_pos = (this->_read_pos + length) % this->_size;
 	return length;
 }
 
