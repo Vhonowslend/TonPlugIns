@@ -6,6 +6,7 @@
 
 #include "warning-disable.hpp"
 #include <chrono>
+#include <iostream>
 #include <memory>
 #include <mutex>
 
@@ -44,8 +45,7 @@ static std::string formatted_time(bool file_safe = false)
 	auto      mis     = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch());
 
 	// Store the time according to the requested format.
-	snprintf(time_buffer.data(), time_buffer.size(), local_format.data(), tstruct.tm_year + 1900, tstruct.tm_mon + 1,
-			 tstruct.tm_mday, tstruct.tm_hour, tstruct.tm_min, tstruct.tm_sec, mis.count() % 1000000);
+	snprintf(time_buffer.data(), time_buffer.size(), local_format.data(), tstruct.tm_year + 1900, tstruct.tm_mon + 1, tstruct.tm_mday, tstruct.tm_hour, tstruct.tm_min, tstruct.tm_sec, mis.count() % 1000000);
 
 	return std::string(time_buffer.data());
 };
@@ -102,7 +102,7 @@ tonplugins::core::core(std::string app_name)
 		if (result.empty())
 			result = std::filesystem::temp_directory_path();
 
-		_local_data = result / "Xaymar" / "TonPlugIns" / _app_name;
+		_local_data = result / "Xaymar" / _app_name;
 		std::filesystem::create_directories(_local_data);
 	}
 	{ // Roaming Data Path
@@ -152,7 +152,7 @@ tonplugins::core::core(std::string app_name)
 		if (result.empty())
 			result = std::filesystem::temp_directory_path();
 
-		_roaming_data = result / "Xaymar" / "TonPlugIns" / _app_name;
+		_roaming_data = result / "Xaymar" / _app_name;
 		std::filesystem::create_directories(_roaming_data);
 	}
 	{ // Cache Data Path
@@ -180,7 +180,7 @@ tonplugins::core::core(std::string app_name)
 		if (result.empty())
 			result = std::filesystem::temp_directory_path();
 
-		_cache_data = result / "Xaymar" / "TonPlugIns" / _app_name;
+		_cache_data = result / "Xaymar" / _app_name;
 		std::filesystem::create_directories(_cache_data);
 	}
 
@@ -256,6 +256,70 @@ std::filesystem::path tonplugins::core::cache_data()
 
 void tonplugins::core::log(std::string_view format, ...)
 {
+	// Build the string to write to the log file.
+	std::string converted;
+	{
+		std::vector<char> format_buffer;
+		std::vector<char> string_buffer;
+		std::string       time = formatted_time();
+
+		// Generate proper format string.
+		{
+			const char* local_format = "%s %s\n";
+
+			size_t len = static_cast<size_t>(snprintf(nullptr, 0, local_format, time.data(), format)) + 1;
+			format_buffer.resize(len);
+			snprintf(format_buffer.data(), format_buffer.size(), local_format, time.data(), format);
+		};
+
+		{
+			va_list args;
+			va_start(args, format);
+			size_t len = static_cast<size_t>(vsnprintf(nullptr, 0, format_buffer.data(), args)) + 1;
+			string_buffer.resize(len);
+			vsnprintf(string_buffer.data(), string_buffer.size(), format_buffer.data(), args);
+			va_end(args);
+		}
+
+		converted = std::string{string_buffer.data()};
+	}
+
+	// Write it to the log file.
+	{ // This needs to be synchronous or bad things happen.
+		std::lock_guard<std::mutex> lock(_log_stream_mutex);
+		if (_log_stream.good() && !_log_stream.bad()) {
+			_log_stream << converted;
+			_log_stream.flush(); // Flush so no information is lost.
+		}
+	}
+
+	// Send this to stdout.
+	std::cout << converted;
+
+#if defined(_WIN32) && defined(_MSC_VER)
+	{ // Write to Debug console
+		std::vector<char> string_buffer;
+
+		{ // Need to prefix it as the debug console is noisy.
+			const char* local_format = "[TonPlugins] %s";
+
+			size_t rfsz = static_cast<size_t>(snprintf(nullptr, 0, local_format, converted.data())) + 1;
+			string_buffer.resize(rfsz);
+			snprintf(string_buffer.data(), string_buffer.size(), local_format, converted.data());
+		}
+
+		// MSVC: Print to debug console
+		std::vector<wchar_t> wstring_buffer(converted.size(), 0);
+		size_t               len =
+			static_cast<size_t>(MultiByteToWideChar(CP_UTF8, 0, string_buffer.data(),
+													static_cast<int>(string_buffer.size()), wstring_buffer.data(), 0))
+			+ 1;
+		wstring_buffer.resize(len);
+		MultiByteToWideChar(CP_UTF8, 0, string_buffer.data(), static_cast<int>(string_buffer.size()),
+							wstring_buffer.data(), static_cast<int>(wstring_buffer.size()));
+		OutputDebugStringW(wstring_buffer.data());
+	}
+#endif
 }
 
 std::shared_ptr<tonplugins::core> tonplugins::core::instance(std::string app_name)

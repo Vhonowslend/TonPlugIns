@@ -18,6 +18,32 @@
 #define TONPLUGINS_HIDDEN __attribute__((visibility("hidden")))
 #endif
 
+/// Currrent function name (as const char*)
+#ifdef _MSC_VER
+// Microsoft Visual Studio
+#define __FUNCTION_SIG__ __FUNCSIG__
+#define __FUNCTION_NAME__ __func__
+#elif defined(__GNUC__) || defined(__MINGW32__)
+// GCC and MinGW
+#define __FUNCTION_SIG__ __PRETTY_FUNCTION__
+#define __FUNCTION_NAME__ __func__
+#else
+// Any other compiler
+#define __FUNCTION_SIG__ __func__
+#define __FUNCTION_NAME__ __func__
+#endif
+
+/// Forceful inlining
+#ifndef FORCE_INLINE
+#ifdef _MSC_VER
+#define FORCE_INLINE __force_inline
+#elif defined(__GNUC__) || defined(__MINGW32__)
+#define FORCE_INLINE __attribute__((always_inline))
+#else
+#define FORCE_INLINE inline
+#endif
+#endif
+
 namespace tonplugins {
 	class core {
 		std::string           _app_name;

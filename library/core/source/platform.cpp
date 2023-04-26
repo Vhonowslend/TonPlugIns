@@ -22,16 +22,16 @@
 #include "warning-enable.hpp"
 
 #ifdef ST_WINDOWS
-std::u8string tonplugins::platform::wide_to_utf8(std::wstring const& v)
+std::string tonplugins::platform::wide_to_utf8(std::wstring const& v)
 {
-	std::vector<char8_t> buffer((v.length() + 1) * 4, 0);
+	std::vector<char> buffer((v.length() + 1) * 4, 0);
 
 	int res = WideCharToMultiByte(CP_UTF8, 0, reinterpret_cast<const wchar_t*>(v.data()), static_cast<int>(v.length()), reinterpret_cast<char*>(buffer.data()), static_cast<int>(buffer.size()), nullptr, nullptr);
 	if (res == 0) {
 		throw std::runtime_error("Failed to convert Windows-native to UTF-8.");
 	}
 
-	return {buffer.data()};
+	return std::string{buffer.data()};
 }
 
 std::filesystem::path tonplugins::platform::wide_to_utf8(std::filesystem::path const& v)
@@ -41,7 +41,7 @@ std::filesystem::path tonplugins::platform::wide_to_utf8(std::filesystem::path c
 	return std::filesystem::path(narrow);
 }
 
-std::wstring tonplugins::platform::utf8_to_wide(std::u8string const& v)
+std::wstring tonplugins::platform::utf8_to_wide(std::string const& v)
 {
 	std::vector<wchar_t> buffer(v.length() + 1, 0);
 
@@ -50,7 +50,7 @@ std::wstring tonplugins::platform::utf8_to_wide(std::u8string const& v)
 		throw std::runtime_error("Failed to convert UTF-8 to Windows-native.");
 	}
 
-	return {buffer.data()};
+	return std::wstring{buffer.data()};
 }
 
 std::filesystem::path tonplugins::platform::utf8_to_wide(std::filesystem::path const& v)
@@ -89,7 +89,7 @@ tonplugins::platform::library::library(std::filesystem::path file)
 		throw std::runtime_error("Failed to load library.");
 	}
 #elif defined(ST_UNIX)
-	_library = dlopen(file.u8string().c_str(), RTLD_LAZY);
+	_library = dlopen(file.string().c_str(), RTLD_LAZY);
 	if (!_library) {
 		if (char* error = dlerror(); error)
 			throw std::runtime_error(error);
@@ -118,9 +118,9 @@ void* tonplugins::platform::library::load_symbol(std::string_view name)
 }
 std::shared_ptr<::tonplugins::platform::library> tonplugins::platform::library::load(std::filesystem::path file)
 {
-	static std::unordered_map<std::u8string, std::weak_ptr<::tonplugins::platform::library>> libraries;
+	static std::unordered_map<std::string, std::weak_ptr<::tonplugins::platform::library>> libraries;
 
-	auto kv = libraries.find(file.u8string());
+	auto kv = libraries.find(file.string());
 	if (kv != libraries.end()) {
 		if (auto ptr = kv->second.lock(); ptr)
 			return ptr;
@@ -128,7 +128,7 @@ std::shared_ptr<::tonplugins::platform::library> tonplugins::platform::library::
 	}
 
 	auto ptr = std::make_shared<::tonplugins::platform::library>(file);
-	libraries.emplace(file.u8string(), ptr);
+	libraries.emplace(file.string(), ptr);
 
 	return ptr;
 }
