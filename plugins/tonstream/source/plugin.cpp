@@ -7,6 +7,15 @@
 #include <warning-disable.hpp>
 #include <public.sdk/source/main/pluginfactory.h>
 
+#include <public.sdk/source/main/moduleinit.cpp>
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+#include <public.sdk/source/main/dllmain.cpp>
+#elif __APPLE__
+#include <public.sdk/source/main/macmain.cpp>
+#else
+#include <public.sdk/source/main/linuxmain.cpp>
+#endif
+
 BEGIN_FACTORY_DEF("Xaymar", "https://xaymar.com/", "mailto:info@xaymar.com")
 DEF_CLASS2(INLINE_UID_FROM_FUID(Steinberg::FUID::fromTUID(tonplugins::tonstream::processor::tuid.data())),
 		   PClassInfo::kManyInstances,                    // Allow many instances
@@ -31,21 +40,12 @@ DEF_CLASS2(INLINE_UID_FROM_FUID(Steinberg::FUID::fromTUID(tonplugins::tonstream:
 END_FACTORY
 #include <warning-enable.hpp>
 
-TONPLUGINS_EXPORT bool InitModule()
-{
-	return true;
-}
+static std::shared_ptr<tonplugins::core> core;
 
-TONPLUGINS_EXPORT bool DeinitModule()
-{
-	return true;
-}
+static auto initializer = Steinberg::ModuleInitializer([]() {
+	core = tonplugins::core::instance("TonStream");
+});
 
-#ifdef _WIN32
-#include <Windows.h>
-
-TONPLUGINS_EXPORT DWORD DllMain(LPVOID handle, DWORD reason, LPVOID reserved)
-{
-	return 0;
-}
-#endif
+static auto finalizer = Steinberg::ModuleTerminator([]() {
+	core.reset();
+});
