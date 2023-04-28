@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="32"
+   height="32"
+   viewBox="0 0 32 32"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.2.2 (732a01da63, 2022-12-09)"
+   sodipodi:docname="border.svg"
+   inkscape:export-filename="border.png"
+   inkscape:export-xdpi="96"
+   inkscape:export-ydpi="96"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="true"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="px"
+     showgrid="true"
+     inkscape:zoom="14.9968"
+     inkscape:cx="17.637096"
+     inkscape:cy="19.43748"
+     inkscape:window-width="1350"
+     inkscape:window-height="1230"
+     inkscape:window-x="344"
+     inkscape:window-y="69"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="layer1">
+    <inkscape:grid
+       type="xygrid"
+       id="grid290"
+       empspacing="8"
+       originx="0"
+       originy="0" />
+  </sodipodi:namedview>
+  <defs
+     id="defs2">
+    <filter
+       style="color-interpolation-filters:sRGB"
+       id="filter1493"
+       inkscape:label="LitShadow"
+       x="-0.086846827"
+       y="-0.086846682"
+       width="1.1736937"
+       height="1.1736934"
+       inkscape:auto-region="true">
+      <feGaussianBlur
+         stdDeviation="0.80000000000000004"
+         id="feGaussianBlur6661"
+         result="result1"
+         in="SourceAlpha" />
+      <feDiffuseLighting
+         id="feDiffuseLighting4477"
+         kernelUnitLength="10"
+         diffuseConstant="1"
+         surfaceScale="-1"
+         in="result1"
+         result="result2">
+        <feDistantLight
+           id="feDistantLight6657"
+           azimuth="60"
+           elevation="50" />
+      </feDiffuseLighting>
+      <feComposite
+         in2="SourceAlpha"
+         id="feComposite6663"
+         in="result2"
+         operator="in"
+         result="result3" />
+      <feBlend
+         mode="hard-light"
+         in2="result3"
+         id="feBlend6665"
+         in="SourceGraphic" />
+      <feGaussianBlur
+         stdDeviation="0.10000000000000001"
+         id="feGaussianBlur12288" />
+    </filter>
+    <filter
+       style="color-interpolation-filters:sRGB"
+       id="filter10465"
+       inkscape:label="LitShadowInverse"
+       x="-0.2475"
+       y="-0.2475"
+       width="1.495"
+       height="1.495"
+       inkscape:auto-region="true">
+      <feGaussianBlur
+         stdDeviation="3"
+         id="feGaussianBlur10455"
+         result="result1"
+         in="SourceAlpha" />
+      <feDiffuseLighting
+         id="feDiffuseLighting10459"
+         kernelUnitLength="10"
+         diffuseConstant="1"
+         surfaceScale="-3"
+         in="result1"
+         result="result2">
+        <feDistantLight
+           id="feDistantLight10457"
+           azimuth="240"
+           elevation="50" />
+      </feDiffuseLighting>
+      <feComposite
+         in2="SourceAlpha"
+         id="feComposite10461"
+         in="result2"
+         operator="in"
+         result="result3" />
+      <feBlend
+         mode="hard-light"
+         in2="result3"
+         id="feBlend10463"
+         in="SourceGraphic" />
+      <feGaussianBlur
+         stdDeviation="0.29999999999999999"
+         id="feGaussianBlur12284"
+         result="result4" />
+      <feComposite
+         in2="SourceAlpha"
+         id="feComposite12286"
+         in="result4"
+         operator="in" />
+    </filter>
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-2.094013,-1.957387)">
+    <rect
+       style="fill:#333333;fill-opacity:1;stroke:none;stroke-width:6.17904;stroke-dasharray:none;stroke-opacity:1;stop-color:#000000;filter:url(#filter10465)"
+       id="rect17797"
+       width="32"
+       height="32"
+       x="2.094013"
+       y="1.957387"
+       rx="7.4666667"
+       ry="7.4666667" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#ababab;stroke-width:1.05495;stroke-dasharray:none;stroke-opacity:1;stop-color:#000000;filter:url(#filter1493)"
+       id="rect16965"
+       width="30.945"
+       height="30.945051"
+       x="2.6214881"
+       y="2.4848621"
+       rx="7"
+       ry="7" />
+  </g>
+</svg>

@@ -1,6 +1,8 @@
 // Copyright 2023 Michael Fabian 'Xaymar' Dirks < info @xaymar.com>
 
 #include <warning-disable.hpp>
+#include <cinttypes>
+#include <string>
 #include <string_view>
 
 #include <pluginterfaces/vst/ivstchannelcontextinfo.h>
@@ -10,6 +12,11 @@
 
 namespace tonplugins::tonstream {
 	class controller : public Steinberg::Vst::EditControllerEx1, public Steinberg::Vst::ChannelContext::IInfoListener {
+		bool        _cfg_submitter;
+		std::string _cfg_ip;
+		uint16_t    _cfg_port;
+		std::string _cfg_identifier;
+
 		public:
 		controller(void* data);
 		~controller();
