@@ -570,6 +570,8 @@ endfunction()
 
 function(define_interface_vst3 p_name)
 	set(INTERFACE_NAME "${p_name}.vst3")
+	set(INTERFACE_NAME "${INTERFACE_NAME}" PARENT_SCOPE)
+
 	define_target(${INTERFACE_NAME} MODULE)
 	set_target_properties(${INTERFACE_NAME} PROPERTIES
 		FOLDER "TonPlugins/Plugins"
@@ -679,6 +681,8 @@ endfunction()
 
 function(define_interface_vst2 p_name)
 	set(INTERFACE_NAME "${p_name}.vst2")
+	set(INTERFACE_NAME "${INTERFACE_NAME}" PARENT_SCOPE)
+
 	define_target(${INTERFACE_NAME} MODULE)
 	set_target_properties(${INTERFACE_NAME} PROPERTIES
 		FOLDER "TonPlugins/Plugins"
