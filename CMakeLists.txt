@@ -320,9 +320,9 @@ function(define_target p_name p_type)
 		# Always generate position independent code.
 		POSITION_INDEPENDENT_CODE ON
 		# Set C++ Standard and Extensions
-		C_STANDARD 17
+		C_STANDARD 23
 		C_STANDARD_REQUIRED ON
-		CXX_STANDARD 20
+		CXX_STANDARD 23
 		CXX_STANDARD_REQUIRED ON
 		CXX_EXTENSIONS OFF
 		# Always try to optimize at link-time
