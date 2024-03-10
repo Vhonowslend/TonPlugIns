@@ -1,0 +1,11 @@
+== TonPlugIns
+TonPlugIns is a collection of VST 2.x, VST 3.x, and AAX plug-ins to a compatible host.
+
+=== License
+Please see LICENSE.adoc
+
+=== Building
+Please see BUILDING.adoc
+
+=== Contributing
+Please see CONTRIBUTING.adoc
