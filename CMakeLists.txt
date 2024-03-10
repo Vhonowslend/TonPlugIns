@@ -156,7 +156,7 @@ set(_VERSION_THIN "${_VERSION_MAJOR}.${_VERSION_MINOR}.${_VERSION_PATCH}")
 if(NOT (_VERSION_PRERELEASE STREQUAL ""))
 	set(_VERSION_THIN "${_VERSION_THIN}${_VERSION_PRERELEASE}${_VERSION_TWEAK}")
 endif()
-if(NOT (VERSION_COMMIT STREQUAL ""))
+if(NOT (_VERSION_BUILD STREQUAL ""))
 	set(_VERSION_THIN "${_VERSION_THIN}-${_VERSION_BUILD}")
 endif()
 
@@ -482,7 +482,7 @@ function(define_target p_name p_type)
 endfunction()
 
 function(setup_target p_name)
-	# Common structure between all plug-ins.
+	# Common structure between all targets.
 	file(GLOB_RECURSE TEMPLATES FOLLOW_SYMLINKS CONFIGURE_DEPENDS "templates/*")
 	source_group(TREE "${${p_name}_SOURCE_DIR}/templates" PREFIX "Templates" FILES ${TEMPLATES})
 
@@ -508,7 +508,6 @@ function(setup_target p_name)
 			${GENERATED_RESOURCES}
 			${SOURCE_PRIVATE}
 			${GENERATED_PRIVATE}
-		PUBLIC
 			${SOURCE_PUBLIC}
 			${GENERATED_PUBLIC}
 	)
@@ -522,12 +521,12 @@ function(setup_target p_name)
 		generate_compile_commands_json(
 			TARGETS ${p_name}
 		)
-		if(COMMAND clang_tidy)
-			clang_tidy(
-				TARGETS ${p_name}
-				VERSION 9.0.0
-			)
-		endif()
+#		if(COMMAND clang_tidy)
+#			clang_tidy(
+#				TARGETS ${p_name}
+#				VERSION 9.0.0
+#			)
+#		endif()
 		if(COMMAND clang_format)
 			clang_format(
 				TARGETS ${p_name}
@@ -547,7 +546,40 @@ function(define_library p_name)
 	)
 endfunction()
 
-function(setup_vst3_plugin p_name)
+function(define_plugin p_name)
+	message(STATUS "Defining plugin '${p_name}'...")
+	define_target(${p_name} STATIC)
+	set_target_properties(${p_name} PROPERTIES
+		FOLDER "TonPlugins/Plugins"
+		PROJECT_LABEL "${p_name}"
+	)
+
+	# Add the common library to the whole mix.
+	target_link_libraries(${p_name} PUBLIC
+		# Steinberg VSTGUI
+		vstgui_support
+		# TonPlugins
+		TonPlugIns::Core
+	)
+	target_compile_definitions(${p_name} PUBLIC
+		$<$<CONFIG:Debug>:VSTGUI_LIVE_EDITING=1>
+	)
+endfunction()
+
+function(define_interface_vst3 p_name)
+	define_target(${p_name} MODULE)
+	set_target_properties(${p_name} PROPERTIES
+		FOLDER "TonPlugins/Plugins"
+		PROJECT_LABEL "${p_name}"
+	)
+	target_compile_definitions(${p_name} PRIVATE
+		TONPLUGINS_VST3
+	)
+	target_link_libraries(${p_name} PUBLIC
+		# Steinberg VST3 SDK
+		sdk
+	)
+
 	# Add some special files
 	if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 		target_sources(${p_name} PRIVATE
@@ -621,7 +653,7 @@ function(setup_vst3_plugin p_name)
 			RUNTIME DESTINATION "${_binary_path}"
 		)
 		if(MSVC)
-			install(FILES "$<TARGET_PDB_FILE:${PROJECT_NAME}>" DESTINATION "${_binary_path}" OPTIONAL)
+			install(FILES "$<TARGET_PDB_FILE:${p_name}>" DESTINATION "${_binary_path}" OPTIONAL)
 		endif()
 		# - Extra Files
 		if(D_PLATFORM_WINDOWS)
@@ -640,37 +672,84 @@ function(setup_vst3_plugin p_name)
 	endif()
 endfunction()
 
-function(setup_vst2_plugin p_name)
-endfunction()
+function(define_interface_vst2 p_name)
+	if(APPLE OR UNIX)
+		message(WARNING "VST 2.x does not support MacOS and Linux at this time.")
+		return()
+	endif()
 
-function(setup_aax_plugin p_name)
-endfunction()
-
-function(define_plugin p_name)
-	message(STATUS "Defining plugin '${p_name}'...")
 	define_target(${p_name} MODULE)
 	set_target_properties(${p_name} PROPERTIES
 		FOLDER "TonPlugins/Plugins"
 		PROJECT_LABEL "${p_name}"
-
 	)
-
-	# Add the common library to the whole mix.
+	target_compile_definitions(${p_name} PRIVATE
+		TONPLUGINS_VST2
+	)
 	target_link_libraries(${p_name} PRIVATE
-		# Steinberg VST3 SDK
-		sdk
-		# Steinberg VSTGUI
-		vstgui_support
-		# TonPlugins
-		TonPlugIns::Core
-	)
-	target_compile_definitions(${p_name} PUBLIC
-		$<$<CONFIG:Debug>:VSTGUI_LIVE_EDITING=1>
+		vst2sdk
 	)
 
-	setup_vst3_plugin(${p_name})
-	setup_vst2_plugin(${p_name})
-	setup_aax_plugin(${p_name})
+	# VST2 Specific requirements
+	set_target_properties(${p_name} PROPERTIES
+		# MacOS requires this to be a bundle.
+		BUNDLE ON
+		BUNDLE_EXTENSION ".vst2"
+	)
+	if(WIN32)
+		set_target_properties(${p_name} PROPERTIES
+			SUFFIX ".dll"
+		)
+	elseif(APPLE)
+		set_target_properties(${p_name} PROPERTIES
+			SUFFIX ""
+		)
+	endif()
+
+	# Install as a VST2.x plug-in
+	set(_path "${CMAKE_INSTALL_PREFIX_VST2}/TonPlugins/${p_name}")
+	if(NOT APPLE)
+		set(_content_path "${_path}/Contents")
+		set(_resource_path "${_content_path}/resources")
+		set(_binary_path "${_content_path}/")
+		# - Resources
+		install(DIRECTORY "${${p_name}_SOURCE_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
+		install(DIRECTORY "${${p_name}_BINARY_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
+		# - Binaries
+		install(TARGETS ${p_name}
+			LIBRARY DESTINATION "${_binary_path}"
+			RUNTIME DESTINATION "${_binary_path}"
+		)
+		if(MSVC)
+			install(FILES "$<TARGET_PDB_FILE:${p_name}>" DESTINATION "${_binary_path}" OPTIONAL)
+		endif()
+		# - Extra Files
+		if(D_PLATFORM_WINDOWS)
+			# 'desktop.ini'
+			#install(FILES "templates/desktop.ini" DESTINATION "${VST3_INSTALL_PREFIX}")
+			#install(CODE "execute_process(COMMAND attrib +S +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/desktop.ini\")")
+
+			# 'icon.ico'
+			#install(FILES "templates/icon.ico" DESTINATION "${VST3_INSTALL_PREFIX}")
+			#install(CODE "execute_process(COMMAND attrib +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/icon.ico\")")
+		endif()
+	else()
+		install(TARGETS ${p_name}
+			BUNDLE DESTINATION "." COMPONENT ${p_name}
+		)
+	endif()
+
+endfunction()
+
+function(define_interface_aax p_name)
+	define_target(${p_name} MODULE)
+	set_target_properties(${p_name} PROPERTIES
+		FOLDER "TonPlugins/Plugins"
+		PROJECT_LABEL "${p_name}"
+	)
+	target_compile_definitions(${p_name} PRIVATE
+		TONPLUGINS_AAX
+	)
 endfunction()
 
 ################################################################################

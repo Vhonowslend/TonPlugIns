@@ -61,8 +61,7 @@ std::filesystem::path tonplugins::platform::utf8_to_wide(std::filesystem::path c
 }
 #endif
 
-tonplugins::platform::library::library(std::filesystem::path file)
-	: _library(nullptr)
+tonplugins::platform::library::library(std::filesystem::path file) : _library(nullptr)
 {
 #if defined(ST_WINDOWS)
 	SetLastError(ERROR_SUCCESS);

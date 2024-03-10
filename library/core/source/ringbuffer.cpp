@@ -49,17 +49,16 @@ struct virtualfree {
 
 #endif
 template<typename T>
-tonplugins::memory::ring<T>::ring(size_t size)
-	: _write_pos(0), _read_pos(0)
+tonplugins::memory::ring<T>::ring(size_t size) : _write_pos(0), _read_pos(0)
 {
 	// Calculate the proper size.
 	size_t page = get_minimum_page_size();
 	_size       = size;
-	_size *= sizeof(T);  // Convert to Bytes
+	_size *= sizeof(T); // Convert to Bytes
 	_size += (page - 1); // Prepare for rounding up
-	_size /= page;       // Round towards zero and convert to Pages
-	_size *= page;       // Convert to Bytes
-	_size /= sizeof(T);  // Convert to Elements.
+	_size /= page; // Round towards zero and convert to Pages
+	_size *= page; // Convert to Bytes
+	_size /= sizeof(T); // Convert to Elements.
 
 	// Allocate the internal data structure.
 	auto id        = std::make_shared<internal_data>();

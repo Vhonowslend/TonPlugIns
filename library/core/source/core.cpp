@@ -50,8 +50,7 @@ static std::string formatted_time(bool file_safe = false)
 	return std::string(time_buffer.data());
 };
 
-tonplugins::core::core(std::string app_name)
-	: _app_name(app_name)
+tonplugins::core::core(std::string app_name) : _app_name(app_name)
 {
 	{ // Local Data Path
 		std::filesystem::path result;
@@ -70,11 +69,9 @@ tonplugins::core::core(std::string app_name)
 		for (const GUID path : paths) {
 			if (SHGetKnownFolderPath(path, 0, NULL, &widebuffer) == S_OK) {
 				size_t wsz = static_cast<size_t>(wcslen(widebuffer));
-				size_t sz  = static_cast<size_t>(
-                    WideCharToMultiByte(CP_UTF8, 0, widebuffer, static_cast<int>(wsz), 0, 0, 0, nullptr));
+				size_t sz  = static_cast<size_t>(WideCharToMultiByte(CP_UTF8, 0, widebuffer, static_cast<int>(wsz), 0, 0, 0, nullptr));
 				buffer.resize(sz + 1);
-				WideCharToMultiByte(CP_UTF8, 0, widebuffer, static_cast<int>(wsz), buffer.data(),
-									static_cast<int>(buffer.size()), 0, nullptr);
+				WideCharToMultiByte(CP_UTF8, 0, widebuffer, static_cast<int>(wsz), buffer.data(), static_cast<int>(buffer.size()), 0, nullptr);
 				CoTaskMemFree(widebuffer);
 
 				result = std::filesystem::path(std::string_view(buffer.data(), buffer.size() - 1));
@@ -85,13 +82,13 @@ tonplugins::core::core(std::string app_name)
 		result = "~" / "Library";
 #else
 		if (char* buffer = getenv("XDG_DATA_HOME"); buffer != nullptr) {
-			result = std::filesystem::u8path(buffer);
+			result = std::filesystem::path(buffer);
 		} else {
 			if (char* buffer = getenv("HOME"); buffer != nullptr) {
-				result = std::filesystem::u8path(buffer);
+				result = std::filesystem::path(buffer);
 			} else {
 				struct passwd* pw = getpwuid(getuid());
-				result            = std::filesystem::u8path(pw->pw_dir);
+				result            = std::filesystem::path(pw->pw_dir);
 			}
 			result /= ".local";
 			result /= "share";
@@ -121,11 +118,9 @@ tonplugins::core::core(std::string app_name)
 		for (const GUID path : paths) {
 			if (SHGetKnownFolderPath(path, 0, NULL, &widebuffer) == S_OK) {
 				size_t wsz = static_cast<size_t>(wcslen(widebuffer));
-				size_t sz  = static_cast<size_t>(
-                    WideCharToMultiByte(CP_UTF8, 0, widebuffer, static_cast<int>(wsz), 0, 0, 0, nullptr));
+				size_t sz  = static_cast<size_t>(WideCharToMultiByte(CP_UTF8, 0, widebuffer, static_cast<int>(wsz), 0, 0, 0, nullptr));
 				buffer.resize(sz + 1);
-				WideCharToMultiByte(CP_UTF8, 0, widebuffer, static_cast<int>(wsz), buffer.data(),
-									static_cast<int>(buffer.size()), 0, nullptr);
+				WideCharToMultiByte(CP_UTF8, 0, widebuffer, static_cast<int>(wsz), buffer.data(), static_cast<int>(buffer.size()), 0, nullptr);
 				CoTaskMemFree(widebuffer);
 
 				result = std::filesystem::path(std::string_view(buffer.data(), buffer.size() - 1));
@@ -136,13 +131,13 @@ tonplugins::core::core(std::string app_name)
 		result = "~" / "Library" / "Preferences";
 #else
 		if (char* buffer = getenv("XDG_CONFIG_HOME"); buffer != nullptr) {
-			result = std::filesystem::u8path(buffer);
+			result = std::filesystem::path(buffer);
 		} else {
 			if (char* buffer = getenv("HOME"); buffer != nullptr) {
-				result = std::filesystem::u8path(buffer);
+				result = std::filesystem::path(buffer);
 			} else {
 				struct passwd* pw = getpwuid(getuid());
-				result            = std::filesystem::u8path(pw->pw_dir);
+				result            = std::filesystem::path(pw->pw_dir);
 			}
 			result /= ".config";
 		}
@@ -164,13 +159,13 @@ tonplugins::core::core(std::string app_name)
 		result = "~" / "Library" / "Caches";
 #else
 		if (char* buffer = getenv("XDG_CACHE_HOME"); buffer != nullptr) {
-			result = std::filesystem::u8path(buffer);
+			result = std::filesystem::path(buffer);
 		} else {
 			if (char* buffer = getenv("HOME"); buffer != nullptr) {
-				result = std::filesystem::u8path(buffer);
+				result = std::filesystem::path(buffer);
 			} else {
 				struct passwd* pw = getpwuid(getuid());
-				result            = std::filesystem::u8path(pw->pw_dir);
+				result            = std::filesystem::path(pw->pw_dir);
 			}
 			result /= ".cache";
 		}
@@ -221,8 +216,7 @@ tonplugins::core::core(std::string app_name)
 			if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
 				file_name_w.resize(file_name_w.size() * 2);
 			}
-			file_name_len = static_cast<DWORD>(
-				GetModuleFileNameW(NULL, file_name_w.data(), static_cast<DWORD>(file_name_w.size())));
+			file_name_len = static_cast<DWORD>(GetModuleFileNameW(NULL, file_name_w.data(), static_cast<DWORD>(file_name_w.size())));
 		} while (GetLastError() == ERROR_INSUFFICIENT_BUFFER);
 
 		auto file_name = tonplugins::platform::wide_to_utf8(std::wstring(file_name_w.data(), file_name_w.data() + file_name_len));
@@ -317,13 +311,9 @@ void tonplugins::core::log(std::string_view format, ...)
 
 		// MSVC: Print to debug console
 		std::vector<wchar_t> wstring_buffer(converted.size(), 0);
-		size_t               len =
-			static_cast<size_t>(MultiByteToWideChar(CP_UTF8, 0, string_buffer.data(),
-													static_cast<int>(string_buffer.size()), wstring_buffer.data(), 0))
-			+ 1;
+		size_t               len = static_cast<size_t>(MultiByteToWideChar(CP_UTF8, 0, string_buffer.data(), static_cast<int>(string_buffer.size()), wstring_buffer.data(), 0)) + 1;
 		wstring_buffer.resize(len);
-		MultiByteToWideChar(CP_UTF8, 0, string_buffer.data(), static_cast<int>(string_buffer.size()),
-							wstring_buffer.data(), static_cast<int>(wstring_buffer.size()));
+		MultiByteToWideChar(CP_UTF8, 0, string_buffer.data(), static_cast<int>(string_buffer.size()), wstring_buffer.data(), static_cast<int>(wstring_buffer.size()));
 		OutputDebugStringW(wstring_buffer.data());
 	}
 #endif
