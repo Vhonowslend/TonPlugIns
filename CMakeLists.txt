@@ -41,7 +41,7 @@ set(VERSION "" CACHE STRING "Override detected or pre-configured version with th
 set(ENABLE_FULL_VERSION ON CACHE BOOL "Enable the full feature set? (Do not enable for Demo/Free builds!)")
 
 ################################################################################
-# Version
+# Versioning
 ################################################################################
 
 version(GENERATE _VERSION COMPRESSED MAJOR 0 MINOR 0 PATCH 0 TWEAK 0 REQUIRE "PATCH;")
@@ -86,7 +86,7 @@ if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/.git")
 		else()
 			# Try and calculate the exist version using git.
 			execute_process(COMMAND "${GIT}" describe --tags --long --abbrev=8 HEAD WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR} RESULT_VARIABLE GIT_RESULT OUTPUT_VARIABLE GIT_OUTPUT ERROR_VARIABLE GIT_ERROR OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-			if(GIT_RESULT EQUAL 0)
+			if((GIT_RESULT EQUAL 0) AND (NOT "${GIT_OUTPUT}" STREQUAL ""))
 				# Result will be MAJOR.MINOR.PATCH-TWEAK-gHASH
 				string(REPLACE "-" ";" GIT_OUTPUT "${GIT_OUTPUT}")
 				string(REPLACE "." ";" GIT_OUTPUT "${GIT_OUTPUT}")
@@ -98,19 +98,41 @@ if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/.git")
 				list(GET GIT_OUTPUT 3 GIT_OUTPUT_TWEAK)
 				list(GET GIT_OUTPUT 4 GIT_OUTPUT_BUILD)
 
-				# Modify the global version
-				version(MODIFY _VERSION "${_VERSION}" COMPRESS
-					MAJOR "${GIT_OUTPUT_MAJOR}"
-					MINOR "${GIT_OUTPUT_MINOR}"
-					PATCH "${GIT_OUTPUT_PATCH}"
-					TWEAK "${GIT_OUTPUT_TWEAK}"
-					BUILD "${GIT_OUTPUT_BUILD}"
-					PRERELEASE "a"
-					REQUIRE "PATCH;TWEAK"
-				)
+				message(STATUS "GIT=${GIT_OUTPUT_MAJOR},${GIT_OUTPUT_MINOR},${GIT_OUTPUT_PATCH},${GIT_OUTPUT_TWEAK},${GIT_OUTPUT_BUILD}")
+
+				# Special case: Tag contains prerelease
+				if(GIT_OUTPUT_PATCH MATCHES "([0-9]+)([a-zA-Z]+)([0-9]*)")
+					# Patch requires special parsing.
+					set(GIT_OUTPUT_PATCH "${CMAKE_MATCH_1}")
+					MATH(EXPR GIT_OUTPUT_TWEAK "${GIT_OUTPUT_TWEAK} + ${CMAKE_MATCH_3}")
+					message(STATUS "GIT=${GIT_OUTPUT_MAJOR},${GIT_OUTPUT_MINOR}")
+
+					# Modify the global version
+					version(MODIFY _VERSION "${_VERSION}" COMPRESS
+						MAJOR "${GIT_OUTPUT_MAJOR}"
+						MINOR "${GIT_OUTPUT_MINOR}"
+						PATCH "${GIT_OUTPUT_PATCH}"
+						TWEAK "${GIT_OUTPUT_TWEAK}"
+						BUILD "${GIT_OUTPUT_BUILD}"
+						PRERELEASE "a"
+						REQUIRE "PATCH;TWEAK"
+					)
+				else()
+					# Modify the global version
+					version(MODIFY _VERSION "${_VERSION}" COMPRESS
+						MAJOR "${GIT_OUTPUT_MAJOR}"
+						MINOR "${GIT_OUTPUT_MINOR}"
+						PATCH "${GIT_OUTPUT_PATCH}"
+						TWEAK "${GIT_OUTPUT_TWEAK}"
+						BUILD "${GIT_OUTPUT_BUILD}"
+						PRERELEASE "a"
+						REQUIRE "PATCH;TWEAK"
+					)
+				endif()
 			else()
 				execute_process(COMMAND "${GIT}" rev-list --count HEAD WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR} RESULT_VARIABLE GIT_RESULT OUTPUT_VARIABLE GIT_OUTPUT ERROR_VARIABLE GIT_ERROR OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-				if(GIT_RESULT EQUAL 0)
+				message(STATUS "GIT=${GIT_RESULT},${GIT_OUTPUT},${GIT_ERROR}")
+				if((GIT_RESULT EQUAL 0) AND (NOT "${GIT_OUTPUT}" STREQUAL ""))
 					version(MODIFY _VERSION "${_VERSION}" COMPRESS
 						TWEAK "${GIT_OUTPUT}"
 						PRERELEASE "a"
@@ -118,7 +140,7 @@ if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/.git")
 					)
 
 					execute_process(COMMAND "${GIT}" log -1 "--pretty=format:g%h" --abbrev=8 HEAD WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR} RESULT_VARIABLE GIT_RESULT OUTPUT_VARIABLE GIT_OUTPUT ERROR_VARIABLE GIT_ERROR OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-					if(GIT_RESULT EQUAL 0)
+					if((GIT_RESULT EQUAL 0) AND (NOT "${GIT_OUTPUT}" STREQUAL ""))
 						version(MODIFY _VERSION "${_VERSION}" COMPRESS
 							BUILD "${GIT_OUTPUT}"
 							PRERELEASE "a"
@@ -165,7 +187,7 @@ if(NOT (VERSION_COMMIT STREQUAL ""))
 endif()
 
 # Parse & Log the detected version.
-message(STATUS "Version ${_VERSION}")
+message(STATUS "Version ${_VERSION_THIN}")
 
 ################################################################################
 # Project
@@ -214,7 +236,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 endif()
 
 # Detect the target architecture. (CMAKE_SYSTEM_ARCHITECTURE can't be trusted.)
-try_compile(ARCH_RES 
+try_compile(ARCH_RES
 	SOURCES "${PROJECT_SOURCE_DIR}/cmake/architecture.c"
 	NO_LOG
 	OUTPUT_VARIABLE ARCH_OUT
@@ -556,7 +578,7 @@ function(setup_vst3_plugin p_name)
 	if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 		target_sources(${p_name} PRIVATE
 			"${CMAKE_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/main/macexport.exp"
-		)		
+		)
 	endif()
 
 	# VST3 Specific requirements
@@ -576,7 +598,7 @@ function(setup_vst3_plugin p_name)
 			SUFFIX ""
 		)
 	endif()
-	
+
 	# Install as a VST3.x plug-in
 	set(_path "${CMAKE_INSTALL_PREFIX_VST3}/TonPlugins/${p_name}.vst3")
 	if(NOT APPLE)

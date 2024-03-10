@@ -10,3 +10,9 @@
 [submodule "third-party/vst3sdk"]
 	path = third-party/vst3sdk
 	url = https://github.com/steinbergmedia/vst3sdk.git
+[submodule "plugins/tonstream"]
+	path = plugins/tonstream
+	url = https://github.com/Xaymar/TonPlugIns-TonStream
+[submodule "plugins/voicefx"]
+	path = plugins/voicefx
+	url = https://github.com/Xaymar/TonPlugIns-VoiceFX
