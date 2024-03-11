@@ -213,10 +213,10 @@ tonplugins::core::core(std::string app_name) : _app_name(app_name)
 		std::vector<wchar_t> file_name_w(256, 0);
 		size_t               file_name_len = 0;
 		do {
+			file_name_len = static_cast<DWORD>(GetModuleFileNameW(NULL, file_name_w.data(), static_cast<DWORD>(file_name_w.size())));
 			if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
 				file_name_w.resize(file_name_w.size() * 2);
 			}
-			file_name_len = static_cast<DWORD>(GetModuleFileNameW(NULL, file_name_w.data(), static_cast<DWORD>(file_name_w.size())));
 		} while (GetLastError() == ERROR_INSUFFICIENT_BUFFER);
 
 		auto file_name = tonplugins::platform::wide_to_utf8(std::wstring(file_name_w.data(), file_name_w.data() + file_name_len));
