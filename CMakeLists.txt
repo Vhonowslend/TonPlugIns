@@ -258,38 +258,9 @@ else()
 endif()
 
 ################################################################################
-# APIs
-################################################################################
-
-# VST 2.x
-#add_subdirectory("${PROJECT_SOURCE_DIR}/third-party/vst2sdk")
-add_library(vst2sdk INTERFACE
-	"${PROJECT_SOURCE_DIR}/third-party/vst2sdk/vst.h"
-)
-target_include_directories(vst2sdk INTERFACE
-	"${PROJECT_SOURCE_DIR}/third-party/vst2sdk"
-)
-set_target_properties(vst2sdk PROPERTIES
-	FOLDER "Steinberg"
-)
-
-# VST 3.x
-set(SMTG_ENABLE_VST3_PLUGIN_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(SMTG_ENABLE_VST3_HOSTING_EXAMPLES ON CACHE BOOL "" FORCE)
-set(SMTG_ENABLE_VSTGUI_SUPPORT ON CACHE BOOL "" FORCE)
-set(SMTG_CXX_STANDARD "23" CACHE STRING "" FORCE)
-set(SMTG_ADD_VST3_UTILITIES OFF CACHE BOOL "" FORCE)
-set(SMTG_USE_STATIC_CRT ON CACHE BOOL "" FORCE)
-set(SMTG_RUN_VST_VALIDATOR OFF CACHE BOOL "" FORCE)
-set(SMTG_CREATE_MODULE_INFO OFF CACHE BOOL "" FORCE)
-add_subdirectory("${PROJECT_SOURCE_DIR}/third-party/vst3sdk")
-set_target_properties(base cmake_modules cmake_VST_modules pluginterfaces sdk sdk_common sdk_hosting vstgui vstgui_standalone vstgui_support vstgui_uidescription validator VST3Inspector PROPERTIES
-	FOLDER "Steinberg"
-)
-
-################################################################################
 # Functions
 ################################################################################
+
 function(define_target p_name p_type)
 	add_library(${p_name} ${p_type})
 	add_library(TonPlugIns::${p_name} ALIAS ${p_name})
@@ -315,6 +286,28 @@ function(define_target p_name p_type)
 			"${${p_name}_BINARY_DIR}/include"
 	)
 
+	# Architecture and Bitness
+	if(TARGET_SYSTEM_IS_ARM)
+		target_compile_definitions(${p_name} PUBLIC TONPLUGINS_ARCH_ARM)
+	endif()
+	if(TARGET_SYSTEM_IS_X86)
+		target_compile_definitions(${p_name} PUBLIC TONPLUGINS_ARCH_X86)
+	endif()
+	if(TARGET_SYSTEM_IS_64BIT)
+		target_compile_definitions(${p_name} PUBLIC TONPLUGINS_ARCH_64BIT)
+	endif()
+
+	# Don't clutter the export table with useless exports.
+	if(MSVC)
+		# Appears to be the default.
+	else()
+		add_compile_options("-fvisibility=hidden")
+	endif()
+
+	setup_target_compiler(${p_name})
+endfunction()
+
+function(setup_target_compiler p_name)
 	# Adjust properties and compiler flags
 	set_target_properties(${p_name} PROPERTIES
 		# Always generate position independent code.
@@ -357,17 +350,6 @@ function(define_target p_name p_type)
 		)
 	endif()
 
-	# Architecture and Bitness
-	if(TARGET_SYSTEM_IS_ARM)
-		target_compile_definitions(${p_name} PUBLIC TONPLUGINS_ARCH_ARM)
-	endif()
-	if(TARGET_SYSTEM_IS_X86)
-		target_compile_definitions(${p_name} PUBLIC TONPLUGINS_ARCH_X86)
-	endif()
-	if(TARGET_SYSTEM_IS_64BIT)
-		target_compile_definitions(${p_name} PUBLIC TONPLUGINS_ARCH_64BIT)
-	endif()
-
 	# Always use fast math over precise math.
 	if(MSVC)
 		target_compile_options(${p_name} PRIVATE "/fp:fast")
@@ -379,13 +361,6 @@ function(define_target p_name p_type)
 		# Appears to be the default.
 	else()
 		message(WARNING "Unknown compiler, unable to guarantee faster math processing.")
-	endif()
-
-	# Don't clutter the export table with useless exports.
-	if(MSVC)
-		# Appears to be the default.
-	else()
-		add_compile_options("-fvisibility=hidden")
 	endif()
 
 	# Enable a number of warnings
@@ -560,18 +535,11 @@ function(define_interface_vst3 p_name)
 
 	# VST3 Specific requirements
 	set_target_properties(${p_name} PROPERTIES
-		# We don't want the suffix twice.
-		OUTPUT_NAME "${p_name}"
 		# MacOS requires this to be a bundle.
 		BUNDLE ON
 		BUNDLE_EXTENSION ".vst3"
 	)
-	if(WIN32)
-		set_target_properties(${p_name} PROPERTIES
-			# VST3 musts have ".vst3" at the end of their name.
-			SUFFIX ".vst3"
-		)
-	elseif(APPLE)
+	if(APPLE)
 		set_target_properties(${p_name} PROPERTIES
 			# VST3 musts have no suffix.
 			SUFFIX ""
@@ -621,21 +589,18 @@ function(define_interface_vst3 p_name)
 		install(DIRECTORY "${${p_name}_SOURCE_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
 		install(DIRECTORY "${${p_name}_BINARY_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
 		# - Binaries
-		install(TARGETS ${p_name}
-			LIBRARY DESTINATION "${_binary_path}"
-			RUNTIME DESTINATION "${_binary_path}"
-		)
+		install(FILES $<TARGET_FILE:${p_name}> DESTINATION "${_binary_path}" RENAME "$<TARGET_FILE_BASE_NAME:${p_name}>.vst3")
 		if(MSVC)
 			install(FILES "$<TARGET_PDB_FILE:${p_name}>" DESTINATION "${_binary_path}" OPTIONAL)
 		endif()
 		# - Extra Files
 		if(D_PLATFORM_WINDOWS)
 			# 'desktop.ini'
-			#install(FILES "templates/desktop.ini" DESTINATION "${VST3_INSTALL_PREFIX}")
+			install(FILES "other/desktop.ini" DESTINATION "${VST3_INSTALL_PREFIX}" USE_SOURCE_PERMISSIONS OPTIONAL)
 			#install(CODE "execute_process(COMMAND attrib +S +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/desktop.ini\")")
 
 			# 'icon.ico'
-			#install(FILES "templates/icon.ico" DESTINATION "${VST3_INSTALL_PREFIX}")
+			install(FILES "other/icon.ico" DESTINATION "${VST3_INSTALL_PREFIX}" USE_SOURCE_PERMISSIONS OPTIONAL)
 			#install(CODE "execute_process(COMMAND attrib +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/icon.ico\")")
 		endif()
 	else()
@@ -657,6 +622,46 @@ function(define_interface_vst2 p_name)
 		# Steinberg VST2 SDK
 		vst2sdk
 	)
+	#target_sources(${p_name} PRIVATE
+	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.h"
+	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.cpp"
+	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.sdk.cpp"
+	#)
+	#set_source_files_properties(
+	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.h"
+	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.cpp"
+	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.sdk.cpp"
+	#	PROPERTIES
+	#	HEADER_FILE_ONLY ON
+	#)
+	#source_group(TREE "${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/" PREFIX "Steinberg" FILES
+	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.h"
+	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.cpp"
+	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.sdk.cpp"
+	#)
+
+	set(_path "${CMAKE_INSTALL_PREFIX_VST2}/TonPlugins/${p_name}")
+	set(_content_path "${_path}/")
+	set(_resource_path "${_content_path}/Resources/")
+	set(_binary_path "${_content_path}/")
+	# - Resources
+	install(DIRECTORY "${${p_name}_SOURCE_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
+	install(DIRECTORY "${${p_name}_BINARY_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
+	# - Binaries
+	install(FILES $<TARGET_FILE:${p_name}> DESTINATION "${_binary_path}" RENAME "$<TARGET_FILE_BASE_NAME:${p_name}>${CMAKE_SHARED_MODULE_SUFFIX}")
+	if(MSVC)
+		install(FILES "$<TARGET_PDB_FILE:${p_name}>" DESTINATION "${_binary_path}" OPTIONAL)
+	endif()
+	# - Extra Files
+	if(D_PLATFORM_WINDOWS)
+		# 'desktop.ini'
+		install(FILES "other/desktop.ini" DESTINATION "${VST3_INSTALL_PREFIX}" USE_SOURCE_PERMISSIONS OPTIONAL)
+		#install(CODE "execute_process(COMMAND attrib +S +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/desktop.ini\")")
+
+		# 'icon.ico'
+		install(FILES "other/icon.ico" DESTINATION "${VST3_INSTALL_PREFIX}" USE_SOURCE_PERMISSIONS OPTIONAL)
+		#install(CODE "execute_process(COMMAND attrib +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/icon.ico\")")
+	endif()
 endfunction()
 
 function(define_plugin p_name)
@@ -685,6 +690,45 @@ function(define_plugin p_name)
 	# VST 2.x
 	define_interface_vst2(${p_name})
 endfunction()
+
+################################################################################
+# APIs
+################################################################################
+
+# VST 2.x
+#add_subdirectory("${PROJECT_SOURCE_DIR}/third-party/vst2sdk")
+file(GLOB_RECURSE VST2SDK_H FOLLOW_SYMLINKS CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/third-party/vst2sdk/*.h")
+file(GLOB_RECURSE VST2SDK_HPP FOLLOW_SYMLINKS CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/third-party/vst2sdk/*.hpp")
+file(GLOB_RECURSE VST2SDK_C FOLLOW_SYMLINKS CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/third-party/vst2sdk/*.c")
+file(GLOB_RECURSE VST2SDK_CPP FOLLOW_SYMLINKS CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/third-party/vst2sdk/*.cpp")
+source_group(TREE "${PROJECT_SOURCE_DIR}/third-party/vst2sdk/" FILES ${VST2SDK_H} ${VST2SDK_HPP} ${VST2SDK_C} ${VST2SDK_CPP})
+add_library(vst2sdk STATIC
+	${VST2SDK_H}
+	${VST2SDK_HPP}
+	${VST2SDK_C}
+	${VST2SDK_CPP}
+)
+target_include_directories(vst2sdk PUBLIC
+	"${PROJECT_SOURCE_DIR}/third-party/vst2sdk"
+)
+set_target_properties(vst2sdk PROPERTIES
+	FOLDER "Steinberg"
+)
+setup_target_compiler(vst2sdk)
+
+# VST 3.x
+set(SMTG_ENABLE_VST3_PLUGIN_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(SMTG_ENABLE_VST3_HOSTING_EXAMPLES ON CACHE BOOL "" FORCE)
+set(SMTG_ENABLE_VSTGUI_SUPPORT ON CACHE BOOL "" FORCE)
+set(SMTG_CXX_STANDARD "23" CACHE STRING "" FORCE)
+set(SMTG_ADD_VST3_UTILITIES OFF CACHE BOOL "" FORCE)
+set(SMTG_USE_STATIC_CRT ON CACHE BOOL "" FORCE)
+set(SMTG_RUN_VST_VALIDATOR OFF CACHE BOOL "" FORCE)
+set(SMTG_CREATE_MODULE_INFO OFF CACHE BOOL "" FORCE)
+add_subdirectory("${PROJECT_SOURCE_DIR}/third-party/vst3sdk")
+set_target_properties(base cmake_modules cmake_VST_modules pluginterfaces sdk sdk_common sdk_hosting vstgui vstgui_standalone vstgui_support vstgui_uidescription validator VST3Inspector PROPERTIES
+	FOLDER "Steinberg"
+)
 
 ################################################################################
 # Common Library
