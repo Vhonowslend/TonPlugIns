@@ -582,7 +582,7 @@ function(define_interface_vst3 p_name)
 	)
 	target_link_libraries(${INTERFACE_NAME} PUBLIC
 		# Parent project
-		${p_name}
+		$<LINK_LIBRARY:WHOLE_ARCHIVE,${p_name}>
 	)
 
 	# Add some special files
@@ -693,7 +693,7 @@ function(define_interface_vst2 p_name)
 	)
 	target_link_libraries(${INTERFACE_NAME} PUBLIC
 		# Parent project
-		${p_name}
+		$<LINK_LIBRARY:WHOLE_ARCHIVE,${p_name}>
 		# Steinberg VST2 SDK
 		vst2sdk
 	)
