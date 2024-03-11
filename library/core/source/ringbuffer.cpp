@@ -49,7 +49,7 @@ struct virtualfree {
 
 #endif
 template<typename T>
-tonplugins::memory::ring<T>::ring(size_t size) : _write_pos(0), _read_pos(0), _notifications()
+tonplugins::memory::ring<T>::ring(size_t size) : _write_pos(0), _read_pos(0), _notifications(), _notification_id(0)
 {
 	// Calculate the proper size.
 	size_t page = get_minimum_page_size();
@@ -157,14 +157,16 @@ template<typename T>
 size_t tonplugins::memory::ring<T>::write(size_t size, T const* buffer)
 {
 	// Early-Exit if something is invalid.
-	if ((!buffer) || (size == 0))
+	if (size == 0)
 		return 0;
 
 	// Limit the size of the write to the buffer size.
 	size_t elements = std::min(size, _size);
 
-	// Copy data from the buffer into the ring.
-	memcpy(_buffer + _write_pos, buffer, sizeof(T) * elements);
+	if (buffer) {
+		// Copy data from the buffer into the ring.
+		memcpy(_buffer + _write_pos, buffer, sizeof(T) * elements);
+	}
 
 	// Advance the write position by the number of elements, wrapped into the actual buffer size.
 	size_t write_old = _write_pos;
@@ -186,11 +188,8 @@ size_t tonplugins::memory::ring<T>::write(size_t size, T const* buffer)
 	}
 
 	// Signal any listeners about the current status.
-	auto avail = this->used();
-	for (auto& kv : _notifications) {
-		if (kv.second <= avail) {
-			*kv.first = true;
-		}
+	for (auto kv : _notifications) {
+		kv.second(*this);
 	}
 
 	// Return the length actually written.
@@ -198,7 +197,7 @@ size_t tonplugins::memory::ring<T>::write(size_t size, T const* buffer)
 }
 
 template<typename T>
-T* tonplugins::memory::ring<T>::peek(size_t size)
+T const* tonplugins::memory::ring<T>::peek(size_t size)
 {
 	// Early-Exit if something is invalid.
 	if ((size == 0) || (size > used())) {
@@ -216,17 +215,30 @@ T* tonplugins::memory::ring<T>::peek(size_t size)
 }
 
 template<typename T>
+T* tonplugins::memory::ring<T>::poke(size_t size)
+{
+	// Early-Exit if something is invalid.
+	if ((size == 0) || (size > this->size())) {
+		return nullptr;
+	}
+
+	return _buffer + _write_pos;
+}
+
+template<typename T>
 size_t tonplugins::memory::ring<T>::read(size_t size, T* buffer)
 {
 	// Early-Exit if something is invalid.
-	if ((!buffer) || (size == 0))
+	if (size == 0)
 		return 0;
 
 	// Limit the length of the read to the available used space.
 	size = std::min(used(), size);
 
-	// Copy data from the ring into the buffer.
-	memcpy(buffer, _buffer + _read_pos, sizeof(T) * size);
+	if (buffer) {
+		// Copy data from the ring into the buffer.
+		memcpy(buffer, _buffer + _read_pos, sizeof(T) * size);
+	}
 
 	// Advance the read position and wrap it back into the actual buffer size.
 	_read_pos = (_read_pos + size) % _size;
@@ -255,13 +267,14 @@ size_t tonplugins::memory::ring<T>::size()
 }
 
 template<typename T>
-void tonplugins::memory::ring<T>::listen(bool* signal, size_t threshold /*= 1*/)
+size_t tonplugins::memory::ring<T>::listen(ring_listener_t signal)
 {
-	_notifications.emplace(signal, threshold);
+	_notifications.emplace(_notification_id++, signal);
+	return (_notification_id - 1);
 }
 
 template<typename T>
-void tonplugins::memory::ring<T>::silence(bool* signal)
+void tonplugins::memory::ring<T>::silence(size_t signal)
 {
 	_notifications.erase(signal);
 }

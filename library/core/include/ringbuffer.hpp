@@ -2,24 +2,30 @@
 
 #pragma once
 #include "warning-disable.hpp"
+#include <atomic>
 #include <cinttypes>
+#include <functional>
 #include <map>
 #include <memory>
 #include <vector>
 #include "warning-enable.hpp"
 
 namespace tonplugins::memory {
+
 	template<typename T>
 	class ring {
+		typedef std::function<void(tonplugins::memory::ring<T>&)> ring_listener_t;
+
 		T*     _buffer;
 		size_t _size;
 
-		size_t _write_pos;
-		size_t _read_pos;
+		std::atomic_size_t _write_pos;
+		std::atomic_size_t _read_pos;
 
 		std::shared_ptr<void> _internal_data;
 
-		std::map<bool*, size_t> _notifications;
+		std::map<size_t, ring_listener_t> _notifications;
+		size_t                            _notification_id;
 
 		public:
 		ring(size_t elements);
@@ -42,10 +48,21 @@ namespace tonplugins::memory {
 
 		/** Peek at data in the ring buffer.
 		 *
+		 * Confirm the peek with read(size, nullptr).
+		 * 
 		 * \param[in] size The minimum length of data that should be available.
 		 * \return `nullptr` if the length constraint can't be fulfilled, otherwise a pointer.
          */
-		T* peek(size_t size);
+		T const* peek(size_t size);
+
+		/** Poke data into the ring buffer.
+		 *
+		 * Confirm the poke with write(size, nullptr).
+		 *
+		 * \param[in] size The length of data you wish to poke.
+		 * \return A pointer to the data.
+		 */
+		T* poke(size_t size);
 
 		/** Read data from the ring buffer.
 		 *
@@ -85,8 +102,8 @@ namespace tonplugins::memory {
 		 *
 		 * The signal must be manually set back to false.
 		 */
-		void listen(bool* signal, size_t threshold = 1);
-		void silence(bool* signal);
+		size_t listen(ring_listener_t fn);
+		void   silence(size_t id);
 	};
 
 	typedef ring<float>    float_ring_t;
