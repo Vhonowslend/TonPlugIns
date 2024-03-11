@@ -110,7 +110,7 @@ macro(detect_version p_version)
 	else()
 		message(STATUS "Not a git repository, automatic version detection disabled.")
 	endif()
-	
+
 	# Allow manual overrides of the detected version.
 	if(${p_version})
 		version(PARSE _VERSION_CFG "${p_version}" REQUIRE "PATCH;")
@@ -128,7 +128,7 @@ macro(detect_version p_version)
 
 	# Fix up missing parts of the Version
 	version(PARSE _VERSION "${_VERSION}" REQUIRE "PATCH;")
-		
+
 	# - Generate a version number compatible with CMake
 	string(REGEX MATCH "[a-zA-Z0-9\-]+\.([0-9]+)" _TMP "${_VERSION_PRERELEASE}")
 	version(GENERATE PROJECT_VERSION
@@ -297,6 +297,7 @@ function(setup_target_compiler p_name)
 	)
 	target_compile_definitions(${p_name} PRIVATE
 		__STDC_WANT_LIB_EXT1__=1
+		SMTG_CPP_17
 	)
 	if(MSVC)
 		target_compile_options(${p_name} PRIVATE
