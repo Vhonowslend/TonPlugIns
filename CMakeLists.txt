@@ -546,54 +546,20 @@ function(define_library p_name)
 	)
 endfunction()
 
-function(define_plugin p_name)
-	message(STATUS "Defining plugin '${p_name}'...")
-	define_target(${p_name} STATIC)
-	set_target_properties(${p_name} PROPERTIES
-		FOLDER "TonPlugins/Plugins"
-		PROJECT_LABEL "${p_name}"
-	)
-
-	# Add the common library to the whole mix.
-	target_link_libraries(${p_name} PUBLIC
-		# Steinberg VSTGUI
-		vstgui_support
-		# TonPlugins
-		TonPlugIns::Core
-		# Steinberg VST3 SDK
-		sdk
-	)
-	target_compile_definitions(${p_name} PUBLIC
-		$<$<CONFIG:Debug>:VSTGUI_LIVE_EDITING=1>
-	)
-endfunction()
-
 function(define_interface_vst3 p_name)
-	set(INTERFACE_NAME "${p_name}.vst3")
-	set(INTERFACE_NAME "${INTERFACE_NAME}" PARENT_SCOPE)
-
-	define_target(${INTERFACE_NAME} MODULE)
-	set_target_properties(${INTERFACE_NAME} PROPERTIES
-		FOLDER "TonPlugins/Plugins"
-		PROJECT_LABEL "${INTERFACE_NAME}"
-	)
-	target_compile_definitions(${INTERFACE_NAME} PRIVATE
+	target_compile_definitions(${p_name} PRIVATE
 		TONPLUGINS_VST3
-	)
-	target_link_libraries(${INTERFACE_NAME} PUBLIC
-		# Parent project
-		$<LINK_LIBRARY:WHOLE_ARCHIVE,${p_name}>
 	)
 
 	# Add some special files
 	if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-		target_sources(${INTERFACE_NAME} PRIVATE
+		target_sources(${p_name} PRIVATE
 			"${CMAKE_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/main/macexport.exp"
 		)
 	endif()
 
 	# VST3 Specific requirements
-	set_target_properties(${INTERFACE_NAME} PROPERTIES
+	set_target_properties(${p_name} PROPERTIES
 		# We don't want the suffix twice.
 		OUTPUT_NAME "${p_name}"
 		# MacOS requires this to be a bundle.
@@ -601,12 +567,12 @@ function(define_interface_vst3 p_name)
 		BUNDLE_EXTENSION ".vst3"
 	)
 	if(WIN32)
-		set_target_properties(${INTERFACE_NAME} PROPERTIES
+		set_target_properties(${p_name} PROPERTIES
 			# VST3 musts have ".vst3" at the end of their name.
 			SUFFIX ".vst3"
 		)
 	elseif(APPLE)
-		set_target_properties(${INTERFACE_NAME} PROPERTIES
+		set_target_properties(${p_name} PROPERTIES
 			# VST3 musts have no suffix.
 			SUFFIX ""
 		)
@@ -652,15 +618,15 @@ function(define_interface_vst3 p_name)
 			set(_binary_path "${_binary_path}Unknown")
 		endif()
 		# - Resources
-		install(DIRECTORY "${${INTERFACE_NAME}_SOURCE_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
-		install(DIRECTORY "${${INTERFACE_NAME}_BINARY_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
+		install(DIRECTORY "${${p_name}_SOURCE_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
+		install(DIRECTORY "${${p_name}_BINARY_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
 		# - Binaries
-		install(TARGETS ${INTERFACE_NAME}
+		install(TARGETS ${p_name}
 			LIBRARY DESTINATION "${_binary_path}"
 			RUNTIME DESTINATION "${_binary_path}"
 		)
 		if(MSVC)
-			install(FILES "$<TARGET_PDB_FILE:${INTERFACE_NAME}>" DESTINATION "${_binary_path}" OPTIONAL)
+			install(FILES "$<TARGET_PDB_FILE:${p_name}>" DESTINATION "${_binary_path}" OPTIONAL)
 		endif()
 		# - Extra Files
 		if(D_PLATFORM_WINDOWS)
@@ -673,81 +639,53 @@ function(define_interface_vst3 p_name)
 			#install(CODE "execute_process(COMMAND attrib +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/icon.ico\")")
 		endif()
 	else()
-		install(TARGETS ${INTERFACE_NAME}
-			BUNDLE DESTINATION "." COMPONENT ${INTERFACE_NAME}
+		install(TARGETS ${p_name}
+			BUNDLE DESTINATION "." COMPONENT ${p_name}
 		)
 	endif()
 endfunction()
 
 function(define_interface_vst2 p_name)
-	set(INTERFACE_NAME "${p_name}.vst2")
-	set(INTERFACE_NAME "${INTERFACE_NAME}" PARENT_SCOPE)
+	if(UNIX OR APPLE)
+		return()
+	endif()
 
-	define_target(${INTERFACE_NAME} MODULE)
-	set_target_properties(${INTERFACE_NAME} PROPERTIES
-		FOLDER "TonPlugins/Plugins"
-		PROJECT_LABEL "${INTERFACE_NAME}"
+	target_compile_definitions(${p_name} PRIVATE
+		TONPLUGINS_VST2
 	)
-	target_compile_definitions(${INTERFACE_NAME} PRIVATE
-		TONPLUGINS_VST3
-	)
-	target_link_libraries(${INTERFACE_NAME} PUBLIC
+	target_link_libraries(${p_name} PUBLIC
 		# Parent project
 		$<LINK_LIBRARY:WHOLE_ARCHIVE,${p_name}>
 		# Steinberg VST2 SDK
 		vst2sdk
 	)
+endfunction()
 
-	# VST2 Specific requirements
-	set_target_properties(${INTERFACE_NAME} PROPERTIES
-		# We don't want the suffix twice.
-		OUTPUT_NAME "${p_name}"
-		# MacOS requires this to be a bundle.
-		BUNDLE ON
-		BUNDLE_EXTENSION ".vst2"
+function(define_plugin p_name)
+	message(STATUS "Defining plugin '${p_name}'...")
+	define_target(${p_name} STATIC)
+	set_target_properties(${p_name} PROPERTIES
+		FOLDER "TonPlugins/Plugins"
+		PROJECT_LABEL "${p_name}"
 	)
-	if(WIN32)
-		set_target_properties(${INTERFACE_NAME} PROPERTIES
-			SUFFIX ".dll"
-		)
-	elseif(APPLE)
-		set_target_properties(${INTERFACE_NAME} PROPERTIES
-			SUFFIX ""
-		)
-	endif()
 
-	# Install as a VST2.x plug-in
-	set(_path "${CMAKE_INSTALL_PREFIX_VST2}/TonPlugins/${p_name}")
-	if(NOT APPLE)
-		set(_content_path "${_path}/Contents")
-		set(_resource_path "${_content_path}/resources")
-		set(_binary_path "${_content_path}/")
-		# - Resources
-		install(DIRECTORY "${${INTERFACE_NAME}_SOURCE_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
-		install(DIRECTORY "${${INTERFACE_NAME}_BINARY_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
-		# - Binaries
-		install(TARGETS ${INTERFACE_NAME}
-			LIBRARY DESTINATION "${_binary_path}"
-			RUNTIME DESTINATION "${_binary_path}"
-		)
-		if(MSVC)
-			install(FILES "$<TARGET_PDB_FILE:${INTERFACE_NAME}>" DESTINATION "${_binary_path}" OPTIONAL)
-		endif()
-		# - Extra Files
-		if(D_PLATFORM_WINDOWS)
-			# 'desktop.ini'
-			#install(FILES "templates/desktop.ini" DESTINATION "${VST3_INSTALL_PREFIX}")
-			#install(CODE "execute_process(COMMAND attrib +S +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/desktop.ini\")")
+	# Add the common library to the whole mix.
+	target_link_libraries(${p_name} PUBLIC
+		# Steinberg VSTGUI
+		vstgui_support
+		# TonPlugins
+		TonPlugIns::Core
+		# Steinberg VST3 SDK
+		sdk
+	)
+	target_compile_definitions(${p_name} PUBLIC
+		$<$<CONFIG:Debug>:VSTGUI_LIVE_EDITING=1>
+	)
 
-			# 'icon.ico'
-			#install(FILES "templates/icon.ico" DESTINATION "${VST3_INSTALL_PREFIX}")
-			#install(CODE "execute_process(COMMAND attrib +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/icon.ico\")")
-		endif()
-	else()
-		install(TARGETS ${INTERFACE_NAME}
-			BUNDLE DESTINATION "." COMPONENT ${INTERFACE_NAME}
-		)
-	endif()
+	# VST 3.x
+	define_interface_vst3(${p_name})
+	# VST 2.x
+	define_interface_vst2(${p_name})
 endfunction()
 
 ################################################################################
