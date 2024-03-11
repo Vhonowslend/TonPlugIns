@@ -322,6 +322,8 @@ function(setup_target_compiler p_name)
 			WIN32_LEAN_AND_MEAN
 			NOMINMAX
 			NOINOUT
+			# Unicode
+			UNICODE
 		)
 	endif()
 
