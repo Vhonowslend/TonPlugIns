@@ -30,5 +30,10 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
 	TONPLUGINS_VERSION_THIN="${_VERSION_THIN}"
 	TONPLUGINS_VERSION="${_VERSION}"
 )
+if(NOT ENABLE_FULL_VERSION)
+	target_compile_definitions(${PROJECT_NAME} PUBLIC
+		TONPLUGINS_DEMO
+	)
+endif()
 
 setup_target(${PROJECT_NAME})
