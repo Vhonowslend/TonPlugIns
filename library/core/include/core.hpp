@@ -63,15 +63,15 @@ namespace tonplugins {
 		public /* Paths */:
 		/** Path for non-roaming data, such as log files, crash dumps, etc.
 		 */
-		std::filesystem::path local_data();
+		std::filesystem::path local_data_path();
 
 		/** Path for roaming data, such as configuration, presets, etc.
 		 */
-		std::filesystem::path roaming_data();
+		std::filesystem::path roaming_data_path();
 
 		/** Path for temporary data, such as cache, etc.
 		 */
-		std::filesystem::path cache_data();
+		std::filesystem::path cache_data_path();
 
 		public:
 		void log(std::string_view format, ...);

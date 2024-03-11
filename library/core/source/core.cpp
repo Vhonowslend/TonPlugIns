@@ -99,7 +99,7 @@ tonplugins::core::core(std::string app_name) : _app_name(app_name)
 		if (result.empty())
 			result = std::filesystem::temp_directory_path();
 
-		_local_data = result / "Xaymar" / _app_name;
+		_local_data = result / "Xaymar" / "TonPlugIns" / _app_name;
 		std::filesystem::create_directories(_local_data);
 	}
 	{ // Roaming Data Path
@@ -147,7 +147,7 @@ tonplugins::core::core(std::string app_name) : _app_name(app_name)
 		if (result.empty())
 			result = std::filesystem::temp_directory_path();
 
-		_roaming_data = result / "Xaymar" / _app_name;
+		_roaming_data = result / "Xaymar" / "TonPlugIns" / _app_name;
 		std::filesystem::create_directories(_roaming_data);
 	}
 	{ // Cache Data Path
@@ -175,7 +175,7 @@ tonplugins::core::core(std::string app_name) : _app_name(app_name)
 		if (result.empty())
 			result = std::filesystem::temp_directory_path();
 
-		_cache_data = result / "Xaymar" / _app_name;
+		_cache_data = result / "Xaymar" / "TonPlugIns" / _app_name;
 		std::filesystem::create_directories(_cache_data);
 	}
 
@@ -233,17 +233,17 @@ tonplugins::core::~core()
 	}
 }
 
-std::filesystem::path tonplugins::core::local_data()
+std::filesystem::path tonplugins::core::local_data_path()
 {
 	return std::filesystem::path(_local_data);
 }
 
-std::filesystem::path tonplugins::core::roaming_data()
+std::filesystem::path tonplugins::core::roaming_data_path()
 {
 	return std::filesystem::path(_local_data);
 }
 
-std::filesystem::path tonplugins::core::cache_data()
+std::filesystem::path tonplugins::core::cache_data_path()
 {
 	return std::filesystem::path(_local_data);
 }
