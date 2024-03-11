@@ -3,6 +3,7 @@
 #pragma once
 #include "warning-disable.hpp"
 #include <cinttypes>
+#include <map>
 #include <memory>
 #include <vector>
 #include "warning-enable.hpp"
@@ -17,6 +18,8 @@ namespace tonplugins::memory {
 		size_t _read_pos;
 
 		std::shared_ptr<void> _internal_data;
+
+		std::map<bool*, size_t> _notifications;
 
 		public:
 		ring(size_t elements);
@@ -77,6 +80,13 @@ namespace tonplugins::memory {
 		 * @return Number of elements this ring buffer can hold.
 		 */
 		size_t size();
+
+		/** Listen/Silence notifications for data availability.
+		 *
+		 * The signal must be manually set back to false.
+		 */
+		void listen(bool* signal, size_t threshold = 1);
+		void silence(bool* signal);
 	};
 
 	typedef ring<float>    float_ring_t;

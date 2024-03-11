@@ -49,7 +49,7 @@ struct virtualfree {
 
 #endif
 template<typename T>
-tonplugins::memory::ring<T>::ring(size_t size) : _write_pos(0), _read_pos(0)
+tonplugins::memory::ring<T>::ring(size_t size) : _write_pos(0), _read_pos(0), _notifications()
 {
 	// Calculate the proper size.
 	size_t page = get_minimum_page_size();
@@ -185,6 +185,14 @@ size_t tonplugins::memory::ring<T>::write(size_t size, T const* buffer)
 		// Otherwise, we would have ambiguity between the two cases.
 	}
 
+	// Signal any listeners about the current status.
+	auto avail = this->used();
+	for (auto& kv : _notifications) {
+		if (kv.second <= avail) {
+			*kv.first = true;
+		}
+	}
+
 	// Return the length actually written.
 	return elements;
 }
@@ -244,6 +252,18 @@ template<typename T>
 size_t tonplugins::memory::ring<T>::size()
 {
 	return _size;
+}
+
+template<typename T>
+void tonplugins::memory::ring<T>::listen(bool* signal, size_t threshold /*= 1*/)
+{
+	_notifications.emplace(signal, threshold);
+}
+
+template<typename T>
+void tonplugins::memory::ring<T>::silence(bool* signal)
+{
+	_notifications.erase(signal);
 }
 
 template class tonplugins::memory::ring<float>;
