@@ -654,8 +654,6 @@ function(define_interface_vst2 p_name)
 		TONPLUGINS_VST2
 	)
 	target_link_libraries(${p_name} PUBLIC
-		# Parent project
-		$<LINK_LIBRARY:WHOLE_ARCHIVE,${p_name}>
 		# Steinberg VST2 SDK
 		vst2sdk
 	)
@@ -663,7 +661,7 @@ endfunction()
 
 function(define_plugin p_name)
 	message(STATUS "Defining plugin '${p_name}'...")
-	define_target(${p_name} STATIC)
+	define_target(${p_name} MODULE)
 	set_target_properties(${p_name} PROPERTIES
 		FOLDER "TonPlugins/Plugins"
 		PROJECT_LABEL "${p_name}"
