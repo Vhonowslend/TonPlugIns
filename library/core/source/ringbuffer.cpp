@@ -25,7 +25,7 @@ size_t get_minimum_page_size()
 	GetSystemInfo(&info);
 	return static_cast<size_t>(std::max(info.dwPageSize, info.dwAllocationGranularity));
 #else
-	return static_cast<size_t>(sysconf(_SC_PAGESIZE));
+	return static_cast<size_t>(getpagesize());
 #endif
 }
 
