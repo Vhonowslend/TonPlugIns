@@ -5,14 +5,14 @@
 std::string const tonplugins::version::to_string()
 {
 	char buffer[256] = {0};
-	snprintf(buffer, sizeof(buffer), "%d.%d.%d.%d%s-%s", major, minor, patch, tweak, prerelease.c_str(),
-			 commit.c_str());
+	snprintf(buffer, sizeof(buffer), "%d.%d.%d-%s+%s", major, minor, patch, prerelease.c_str(),
+			 build.c_str());
 	return std::string(buffer);
 }
 
 bool tonplugins::version::operator==(const tonplugins::version& rhs)
 {
-	return (major == rhs.major) && (minor == rhs.minor) && (patch == rhs.patch) && (tweak == rhs.tweak) && (prerelease == rhs.prerelease) && (commit == rhs.commit);
+	return (major == rhs.major) && (minor == rhs.minor) && (patch == rhs.patch) && (prerelease == rhs.prerelease) && (build == rhs.build);
 }
 
 bool tonplugins::version::operator>(const tonplugins::version& rhs)
@@ -23,14 +23,15 @@ bool tonplugins::version::operator>(const tonplugins::version& rhs)
 		return true;
 	if (patch > rhs.patch)
 		return true;
-	if (tweak > rhs.tweak)
-		return true;
+	// prerelease empty is better
+	// Otherwise, alphanumeric compare is better?
+	// build is ignored
 	return false;
 }
 
 tonplugins::version tonplugins::get_version()
 {
 	// clang-format off
-	return { @_VERSION_MAJOR@, @_VERSION_MINOR@, @_VERSION_PATCH@, @_VERSION_TWEAK@, "@_VERSION_PRERELEASE@", "@_VERSION_BUILD@" };
+	return { @_VERSION_MAJOR@, @_VERSION_MINOR@, @_VERSION_PATCH@, "@_VERSION_PRERELEASE@", "@_VERSION_BUILD@" };
 	// clang-format on
 }

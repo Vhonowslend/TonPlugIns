@@ -11,9 +11,8 @@ namespace tonplugins {
 		uint16_t    major;
 		uint16_t    minor;
 		uint16_t    patch;
-		uint16_t    tweak;
 		std::string prerelease;
-		std::string commit;
+		std::string build;
 
 		std::string const to_string();
 

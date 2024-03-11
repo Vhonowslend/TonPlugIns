@@ -44,137 +44,111 @@ set(ENABLE_FULL_VERSION ON CACHE BOOL "Enable the full feature set? (Do not enab
 # Versioning
 ################################################################################
 
-version(GENERATE _VERSION COMPRESSED MAJOR 0 MINOR 0 PATCH 0 TWEAK 0 REQUIRE "PATCH;")
-version(PARSE _VERSION "${_VERSION}" REQUIRE "PATCH;TWEAK")
+macro(detect_version p_version)
+	version(GENERATE _VERSION COMPRESSED MAJOR 0 MINOR 0 PATCH 0 REQUIRE "PATCH;")
+	version(PARSE _VERSION "${_VERSION}" REQUIRE "PATCH;")
 
-# If possible, automatically generate versions from git.
-if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/.git")
-	find_program(GIT
-		NAMES
-			git
-			git.exe
-	)
+	# If possible, automatically generate versions from git.
+	if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/.git")
+		find_program(GIT
+			NAMES
+				git
+				git.exe
+		)
 
-	if(EXISTS "${GIT}")
-		# Try and calculate the exist version using git.
-		execute_process(COMMAND "${GIT}" describe --tags --long --abbrev=8 HEAD WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR} RESULT_VARIABLE GIT_RESULT OUTPUT_VARIABLE GIT_OUTPUT ERROR_VARIABLE GIT_ERROR OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-		if((GIT_RESULT EQUAL 0) AND (NOT "${GIT_OUTPUT}" STREQUAL ""))
-			# Result will be MAJOR.MINOR.PATCH-TWEAK-gHASH
-			string(REPLACE "-" ";" GIT_OUTPUT "${GIT_OUTPUT}")
-			string(REPLACE "." ";" GIT_OUTPUT "${GIT_OUTPUT}")
+		if(EXISTS "${GIT}")
+			# Try and calculate the exist version using git.
+			execute_process(COMMAND "${GIT}" describe --tags --long --abbrev=8 HEAD WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR} RESULT_VARIABLE GIT_RESULT OUTPUT_VARIABLE GIT_OUTPUT ERROR_VARIABLE GIT_ERROR OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+			if((GIT_RESULT EQUAL 0) AND (NOT "${GIT_OUTPUT}" STREQUAL ""))
+				# Tags are guaranteed to be MAJOR.MINOR.PATCH(-PRERELEASE)-COMMITS-gHASH
+				string(REPLACE "-g" "+g" GIT_OUTPUT "${GIT_OUTPUT}") # Ensure gHASH ends up as build.
+				version(PARSE _GIT_VERSION "${GIT_OUTPUT}" REQUIRE "PATCH;")
 
-			# Split into components
-			list(GET GIT_OUTPUT 0 GIT_OUTPUT_MAJOR)
-			list(GET GIT_OUTPUT 1 GIT_OUTPUT_MINOR)
-			list(GET GIT_OUTPUT 2 GIT_OUTPUT_PATCH)
-			list(GET GIT_OUTPUT 3 GIT_OUTPUT_TWEAK)
-			list(GET GIT_OUTPUT 4 GIT_OUTPUT_BUILD)
-
-			# Special case: Tag contains prerelease
-			if(GIT_OUTPUT_PATCH MATCHES "([0-9]+)([a-zA-Z]+)([0-9]*)")
-				# Patch requires special parsing.
-				set(GIT_OUTPUT_PATCH "${CMAKE_MATCH_1}")
-				if(CMAKE_MATCH_3 GREATER 0)
-					set(GIT_OUTPUT_PRERELEASE "${CMAKE_MATCH_2}")
+				# Properly format the Pre-Release data
+				if(_GIT_VERSION_PRERELEASE MATCHES "([a-zA-Z\-]+)\.([0-9]+)-([0-9]+)")
+					# Add Pre-Release numbers together
+					math(EXPR _GIT_VERSION_PRERELEASE "${CMAKE_MATCH_2} + ${CMAKE_MATCH_3}")
+					set(_GIT_VERSION_PRERELEASE "${CMAKE_MATCH_1}.${_GIT_VERSION_PRERELEASE}")
 				else()
-					set(GIT_OUTPUT_PRERELEASE "a")
+					set(_GIT_VERSION_PRERELEASE "alpha.${_GIT_VERSION_PRERELEASE}")
 				endif()
-				MATH(EXPR GIT_OUTPUT_TWEAK "${GIT_OUTPUT_TWEAK} + ${CMAKE_MATCH_3}")
 
 				# Modify the global version
-				version(MODIFY _VERSION "${_VERSION}" COMPRESS
-					MAJOR "${GIT_OUTPUT_MAJOR}"
-					MINOR "${GIT_OUTPUT_MINOR}"
-					PATCH "${GIT_OUTPUT_PATCH}"
-					TWEAK "${GIT_OUTPUT_TWEAK}"
-					BUILD "${GIT_OUTPUT_BUILD}"
-					PRERELEASE "${GIT_OUTPUT_PRERELEASE}"
-					REQUIRE "PATCH;TWEAK"
+				version(MODIFY _VERSION "${_VERSION}"
+					MAJOR "${_GIT_VERSION_MAJOR}"
+					MINOR "${_GIT_VERSION_MINOR}"
+					PATCH "${_GIT_VERSION_PATCH}"
+					PRERELEASE "${_GIT_VERSION_PRERELEASE}"
+					BUILD "${_GIT_VERSION_BUILD}"
+					REQUIRE "PATCH;"
 				)
 			else()
-				# Modify the global version
-				version(MODIFY _VERSION "${_VERSION}" COMPRESS
-					MAJOR "${GIT_OUTPUT_MAJOR}"
-					MINOR "${GIT_OUTPUT_MINOR}"
-					PATCH "${GIT_OUTPUT_PATCH}"
-					TWEAK "${GIT_OUTPUT_TWEAK}"
-					BUILD "${GIT_OUTPUT_BUILD}"
-					PRERELEASE "a"
-					REQUIRE "PATCH;TWEAK"
-				)
+				execute_process(COMMAND "${GIT}" rev-list --count HEAD WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR} RESULT_VARIABLE GIT_RESULT OUTPUT_VARIABLE GIT_OUTPUT ERROR_VARIABLE GIT_ERROR OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+				if((GIT_RESULT EQUAL 0) AND (NOT "${GIT_OUTPUT}" STREQUAL ""))
+					version(MODIFY _VERSION "${_VERSION}"
+						PRERELEASE "alpha.${GIT_OUTPUT}"
+						REQUIRE "PATCH;"
+					)
+
+					# Determine the build using git.
+					execute_process(COMMAND "${GIT}" log -1 "--pretty=format:g%h" --abbrev=8 HEAD WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR} RESULT_VARIABLE GIT_RESULT OUTPUT_VARIABLE GIT_OUTPUT ERROR_VARIABLE GIT_ERROR OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+					if((GIT_RESULT EQUAL 0) AND (NOT "${GIT_OUTPUT}" STREQUAL ""))
+						version(MODIFY _VERSION "${_VERSION}"
+							BUILD "${GIT_OUTPUT}"
+							REQUIRE "PATCH;"
+						)
+					else()
+						message(WARNING "Failed to detect build version with 'git'.")
+					endif()
+				else()
+					message(WARNING "Failed to automatically detect version with 'git'.")
+				endif()
 			endif()
 		else()
-			execute_process(COMMAND "${GIT}" rev-list --count HEAD WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR} RESULT_VARIABLE GIT_RESULT OUTPUT_VARIABLE GIT_OUTPUT ERROR_VARIABLE GIT_ERROR OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-			if((GIT_RESULT EQUAL 0) AND (NOT "${GIT_OUTPUT}" STREQUAL ""))
-				version(MODIFY _VERSION "${_VERSION}" COMPRESS
-					TWEAK "${GIT_OUTPUT}"
-					PRERELEASE "a"
-					REQUIRE "PATCH;TWEAK"
-				)
-
-				# Determine the build using git.
-				execute_process(COMMAND "${GIT}" log -1 "--pretty=format:g%h" --abbrev=8 HEAD WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR} RESULT_VARIABLE GIT_RESULT OUTPUT_VARIABLE GIT_OUTPUT ERROR_VARIABLE GIT_ERROR OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-				if((GIT_RESULT EQUAL 0) AND (NOT "${GIT_OUTPUT}" STREQUAL ""))
-					version(MODIFY _VERSION "${_VERSION}" COMPRESS
-						BUILD "${GIT_OUTPUT}"
-						REQUIRE "PATCH;TWEAK"
-					)
-				else()
-					message(WARNING "Failed to detect build version with 'git'.")
-				endif()
-			else()
-				message(WARNING "Failed to automatically detect version with 'git'.")
-			endif()
+			message(WARNING "'git' not found, automatic version detection disabled.")
 		endif()
 	else()
-		message(WARNING "'git' not found, automatic version detection disabled.")
+		message(STATUS "Not a git repository, automatic version detection disabled.")
 	endif()
-else()
-	message(STATUS "Not a git repository, automatic version detection disabled.")
-endif()
+	
+	# Allow manual overrides of the detected version.
+	if(${p_version})
+		version(PARSE _VERSION_CFG "${p_version}" REQUIRE "PATCH;")
+		if("${_VERSION_CFG_BUILD}" STREQUAL "")
+			set(_VERSION_CFG_BUILD "${_VERSION_BUILD}")
+		endif()
+		version(GENERATE _VERSION
+			MAJOR "${_VERSION_CFG_MAJOR}"
+			MINOR "${_VERSION_CFG_MINOR}"
+			PATCH "${_VERSION_CFG_PATCH}"
+			PRERELEASE "${_VERSION_CFG_PRERELEASE}"
+			BUILD "${_VERSION_CFG_BUILD}"
+		)
+	endif()
+
+	# Fix up missing parts of the Version
+	version(PARSE _VERSION "${_VERSION}" REQUIRE "PATCH;")
+		
+	# - Generate a version number compatible with CMake
+	string(REGEX MATCH "[a-zA-Z0-9\-]+\.([0-9]+)" _TMP "${_VERSION_PRERELEASE}")
+	version(GENERATE PROJECT_VERSION
+		MAJOR "${_VERSION_MAJOR}"
+		MINOR "${_VERSION_MINOR}"
+		PATCH "${_VERSION_PATCH}"
+		TWEAK "${CMAKE_MATCH_1}"
+		REQUIRE "PATCH;TWEAK"
+	)
+endmacro()
 
 # Allow manual overrides of the detected version.
-if(${PREFIX}VERSION)
-	version(PARSE _VERSION_CFG "${${PREFIX}VERSION}" REQUIRE "PATCH;TWEAK")
-	if("${_VERSION_CFG_BUILD}" STREQUAL "")
-		set(_VERSION_CFG_BUILD "${_VERSION_BUILD}")
-	endif()
-	version(GENERATE _VERSION COMPRESS
-		MAJOR "${_VERSION_CFG_MAJOR}"
-		MINOR "${_VERSION_CFG_MINOR}"
-		PATCH "${_VERSION_CFG_PATCH}"
-		TWEAK "${_VERSION_CFG_TWEAK}"
-		PRERELEASE "${_VERSION_CFG_PRERELEASE}"
-		BUILD "${_VERSION_CFG_BUILD}"
-	)
-endif()
-
-# Fix up missing parts of the Version
-version(PARSE _VERSION "${_VERSION}" REQUIRE "PATCH;TWEAK")
-
-set(_VERSION_THIN "${_VERSION_MAJOR}.${_VERSION_MINOR}.${_VERSION_PATCH}")
-if(NOT (_VERSION_PRERELEASE STREQUAL ""))
-	set(_VERSION_THIN "${_VERSION_THIN}${_VERSION_PRERELEASE}${_VERSION_TWEAK}")
-endif()
-if(NOT (_VERSION_BUILD STREQUAL ""))
-	set(_VERSION_THIN "${_VERSION_THIN}-${_VERSION_BUILD}")
-endif()
+detect_version(${PREFIX}VERSION)
 
 # Parse & Log the detected version.
-message(STATUS "Version ${_VERSION_THIN}")
+message(STATUS "Version ${_VERSION} (${PROJECT_VERSION})")
 
 ################################################################################
 # Project
 ################################################################################
-
-# - Generate a version number compatible with CMake
-version(GENERATE PROJECT_VERSION
-	MAJOR "${_VERSION_MAJOR}"
-	MINOR "${_VERSION_MINOR}"
-	PATCH "${_VERSION_PATCH}"
-	TWEAK "${_VERSION_TWEAK}"
-	REQUIRE "PATCH;TWEAK"
-)
 
 # Project and Metadata
 project(
@@ -641,9 +615,9 @@ function(define_interface_vst2 p_name)
 	#)
 
 	set(_path "${CMAKE_INSTALL_PREFIX_VST2}/TonPlugins/${p_name}")
-	set(_content_path "${_path}/")
-	set(_resource_path "${_content_path}/Resources/")
-	set(_binary_path "${_content_path}/")
+	set(_content_path "${_path}")
+	set(_resource_path "${_content_path}/Resources")
+	set(_binary_path "${_content_path}")
 	# - Resources
 	install(DIRECTORY "${${p_name}_SOURCE_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
 	install(DIRECTORY "${${p_name}_BINARY_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
