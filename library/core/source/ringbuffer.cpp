@@ -250,8 +250,8 @@ size_t tonplugins::memory::ring<T>::read(size_t size, T* buffer)
 template<typename T>
 size_t tonplugins::memory::ring<T>::used()
 {
-	// Is the write pointer in front of the read pointer?
-	if (_write_pos > _read_pos) {
+	// Is the write pointer in front or on the read pointer?
+	if (_write_pos >= _read_pos) {
 		// If yes, just subtract the read position from the write position.
 		return _write_pos - _read_pos;
 	} else {
