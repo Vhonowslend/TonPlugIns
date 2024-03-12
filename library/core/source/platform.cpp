@@ -34,13 +34,6 @@ std::string tonplugins::platform::wide_to_utf8(std::wstring const& v)
 	return std::string{buffer.data()};
 }
 
-std::filesystem::path tonplugins::platform::wide_to_utf8(std::filesystem::path const& v)
-{
-	auto wide   = v.wstring();
-	auto narrow = wide_to_utf8(wide);
-	return std::filesystem::path(narrow);
-}
-
 std::wstring tonplugins::platform::utf8_to_wide(std::string const& v)
 {
 	std::vector<wchar_t> buffer(v.length() + 1, 0);
@@ -53,19 +46,13 @@ std::wstring tonplugins::platform::utf8_to_wide(std::string const& v)
 	return std::wstring{buffer.data()};
 }
 
-std::filesystem::path tonplugins::platform::utf8_to_wide(std::filesystem::path const& v)
-{
-	auto narrow = v.string();
-	auto wide   = utf8_to_wide(narrow);
-	return std::filesystem::path(wide);
-}
 #endif
 
 tonplugins::platform::library::library(std::filesystem::path file) : _library(nullptr)
 {
 #if defined(ST_WINDOWS)
 	SetLastError(ERROR_SUCCESS);
-	file        = ::tonplugins::platform::utf8_to_wide(file);
+	file        = file.wstring();
 	DWORD flags = 0;
 	if (file.is_absolute()) {
 		flags |= LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS;

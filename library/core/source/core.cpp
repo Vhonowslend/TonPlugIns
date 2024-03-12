@@ -68,13 +68,7 @@ tonplugins::core::core(std::string app_name) : _app_name(app_name)
 
 		for (const GUID path : paths) {
 			if (SHGetKnownFolderPath(path, 0, NULL, &widebuffer) == S_OK) {
-				size_t wsz = static_cast<size_t>(wcslen(widebuffer));
-				size_t sz  = static_cast<size_t>(WideCharToMultiByte(CP_UTF8, 0, widebuffer, static_cast<int>(wsz), 0, 0, 0, nullptr));
-				buffer.resize(sz + 1);
-				WideCharToMultiByte(CP_UTF8, 0, widebuffer, static_cast<int>(wsz), buffer.data(), static_cast<int>(buffer.size()), 0, nullptr);
-				CoTaskMemFree(widebuffer);
-
-				result = std::filesystem::path(std::string_view(buffer.data(), buffer.size() - 1));
+				result = std::filesystem::path(std::wstring_view(widebuffer));
 				break;
 			}
 		}
@@ -117,13 +111,7 @@ tonplugins::core::core(std::string app_name) : _app_name(app_name)
 
 		for (const GUID path : paths) {
 			if (SHGetKnownFolderPath(path, 0, NULL, &widebuffer) == S_OK) {
-				size_t wsz = static_cast<size_t>(wcslen(widebuffer));
-				size_t sz  = static_cast<size_t>(WideCharToMultiByte(CP_UTF8, 0, widebuffer, static_cast<int>(wsz), 0, 0, 0, nullptr));
-				buffer.resize(sz + 1);
-				WideCharToMultiByte(CP_UTF8, 0, widebuffer, static_cast<int>(wsz), buffer.data(), static_cast<int>(buffer.size()), 0, nullptr);
-				CoTaskMemFree(widebuffer);
-
-				result = std::filesystem::path(std::string_view(buffer.data(), buffer.size() - 1));
+				result = std::filesystem::path(std::wstring_view(widebuffer));
 				break;
 			}
 		}

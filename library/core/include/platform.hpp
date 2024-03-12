@@ -24,11 +24,8 @@ namespace tonplugins::platform {
 	};
 
 #ifdef _WIN32
-	std::string           wide_to_utf8(std::wstring const& v);
-	std::filesystem::path wide_to_utf8(std::filesystem::path const& v);
-
-	std::wstring          utf8_to_wide(std::string const& v);
-	std::filesystem::path utf8_to_wide(std::filesystem::path const& v);
+	std::string  wide_to_utf8(std::wstring const& v);
+	std::wstring utf8_to_wide(std::string const& v);
 #endif
 
 } // namespace tonplugins::platform
