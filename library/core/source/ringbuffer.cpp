@@ -207,9 +207,6 @@ T const* tonplugins::memory::ring<T>::peek(size_t size)
 	// Calculate the pointer to return.
 	T* ptr = _buffer + _read_pos;
 
-	// Advance the read position and wrap it back into the actual buffer size.
-	_read_pos = (_read_pos + size) % _size;
-
 	// Return the pointer.
 	return ptr;
 }
