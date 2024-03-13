@@ -546,127 +546,8 @@ function(define_library p_name)
 	)
 endfunction()
 
-function(define_interface_vst3 p_name)
-	target_compile_definitions(${p_name} PRIVATE
-		TONPLUGINS_VST3
-	)
-
-	# Add some special files
-	if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-		target_sources(${p_name} PRIVATE
-			"${CMAKE_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/main/macexport.exp"
-		)
-	endif()
-
-	# VST3 Specific requirements
-	set_target_properties(${p_name} PROPERTIES
-		# MacOS requires this to be a bundle.
-		BUNDLE ON
-		BUNDLE_EXTENSION ".vst3"
-	)
-	if(APPLE)
-		set_target_properties(${p_name} PROPERTIES
-			# VST3 musts have no suffix.
-			SUFFIX ""
-		)
-	endif()
-
-	# Install as a VST3.x plug-in
-	set(_path "${CMAKE_INSTALL_PREFIX_VST3}/TonPlugins/${p_name}.vst3")
-	if(NOT APPLE)
-		set(_content_path "${_path}/Contents")
-		set(_resource_path "${_content_path}/Resources")
-		set(_binary_path "${_content_path}/")
-		if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-			if(TARGET_SYSTEM_IS_X86 AND TARGET_SYSTEM_IS_ARM)
-				set(_binary_path "${_binary_path}arm64ec")
-			elseif(TARGET_SYSTEM_IS_X86 AND TARGET_SYSTEM_IS_64BIT)
-				set(_binary_path "${_binary_path}x86_64")
-			elseif(TARGET_SYSTEM_IS_ARM AND TARGET_SYSTEM_IS_64BIT)
-				set(_binary_path "${_binary_path}arm64")
-			elseif(TARGET_SYSTEM_IS_X86)
-				set(_binary_path "${_binary_path}x86")
-			elseif(TARGET_SYSTEM_IS_ARM)
-				set(_binary_path "${_binary_path}arm")
-			else()
-				set(_binary_path "${_binary_path}unknown")
-			endif()
-			set(_binary_path "${_binary_path}-win")
-		elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-			if(TARGET_SYSTEM_IS_X86 AND TARGET_SYSTEM_IS_64BIT)
-				set(_binary_path "${_binary_path}x86_64")
-			elseif(TARGET_SYSTEM_IS_ARM AND TARGET_SYSTEM_IS_64BIT)
-				set(_binary_path "${_binary_path}aarch64")
-			elseif(TARGET_SYSTEM_IS_X86)
-				set(_binary_path "${_binary_path}i386")
-			elseif(TARGET_SYSTEM_IS_ARM)
-				set(_binary_path "${_binary_path}arm")
-			else()
-				set(_binary_path "${_binary_path}unknown")
-			endif()
-			set(_binary_path "${_binary_path}-linux")
-		elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-			set(_binary_path "${_binary_path}MacOS")
-		else()
-			set(_binary_path "${_binary_path}Unknown")
-		endif()
-		# - Resources
-		install(DIRECTORY "${${p_name}_SOURCE_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
-		install(DIRECTORY "${${p_name}_BINARY_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
-		# - Binaries
-		install(FILES $<TARGET_FILE:${p_name}> DESTINATION "${_binary_path}" RENAME "$<TARGET_FILE_BASE_NAME:${p_name}>.vst3")
-		if(MSVC)
-			install(FILES "$<TARGET_PDB_FILE:${p_name}>" DESTINATION "${_binary_path}" OPTIONAL)
-		endif()
-		# - Extra Files
-		if(D_PLATFORM_WINDOWS)
-			# 'desktop.ini'
-			install(FILES "other/desktop.ini" DESTINATION "${VST3_INSTALL_PREFIX}" USE_SOURCE_PERMISSIONS OPTIONAL)
-			#install(CODE "execute_process(COMMAND attrib +S +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/desktop.ini\")")
-
-			# 'icon.ico'
-			install(FILES "other/icon.ico" DESTINATION "${VST3_INSTALL_PREFIX}" USE_SOURCE_PERMISSIONS OPTIONAL)
-			#install(CODE "execute_process(COMMAND attrib +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/icon.ico\")")
-		endif()
-	else()
-		install(TARGETS ${p_name}
-			BUNDLE DESTINATION "." COMPONENT ${p_name}
-		)
-	endif()
-endfunction()
-
-function(define_interface_vst2 p_name)
-	if(UNIX OR APPLE)
-		return()
-	endif()
-
-	target_compile_definitions(${p_name} PRIVATE
-		TONPLUGINS_VST2
-	)
-	target_link_libraries(${p_name} PUBLIC
-		# Steinberg VST2 SDK
-		vst2sdk
-	)
-	#target_sources(${p_name} PRIVATE
-	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.h"
-	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.cpp"
-	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.sdk.cpp"
-	#)
-	#set_source_files_properties(
-	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.h"
-	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.cpp"
-	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.sdk.cpp"
-	#	PROPERTIES
-	#	HEADER_FILE_ONLY ON
-	#)
-	#source_group(TREE "${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/" PREFIX "Steinberg" FILES
-	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.h"
-	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.cpp"
-	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.sdk.cpp"
-	#)
-
-	set(_path "${CMAKE_INSTALL_PREFIX_VST2}/TonPlugins/${p_name}")
-	set(_content_path "${_path}/Contents")
+function(calculate_install_path p_name p_contentvar p_resourcevar p_binvar)
+	set(_content_path "${p_name}/Contents")
 	set(_resource_path "${_content_path}/Resources")
 	set(_binary_path "${_content_path}/")
 	if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -702,23 +583,282 @@ function(define_interface_vst2 p_name)
 	else()
 		set(_binary_path "${_binary_path}Unknown")
 	endif()
-	# - Resources
-	install(DIRECTORY "${${p_name}_SOURCE_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
-	install(DIRECTORY "${${p_name}_BINARY_DIR}/resources/" DESTINATION "${_resource_path}" USE_SOURCE_PERMISSIONS OPTIONAL)
-	# - Binaries
-	install(FILES $<TARGET_FILE:${p_name}> DESTINATION "${_binary_path}" RENAME "$<TARGET_FILE_BASE_NAME:${p_name}>${CMAKE_SHARED_MODULE_SUFFIX}")
-	if(MSVC)
-		install(FILES "$<TARGET_PDB_FILE:${p_name}>" DESTINATION "${_binary_path}" OPTIONAL)
-	endif()
-	# - Extra Files
-	if(D_PLATFORM_WINDOWS)
-		# 'desktop.ini'
-		install(FILES "other/desktop.ini" DESTINATION "${VST3_INSTALL_PREFIX}" USE_SOURCE_PERMISSIONS OPTIONAL)
-		#install(CODE "execute_process(COMMAND attrib +S +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/desktop.ini\")")
 
-		# 'icon.ico'
-		install(FILES "other/icon.ico" DESTINATION "${VST3_INSTALL_PREFIX}" USE_SOURCE_PERMISSIONS OPTIONAL)
-		#install(CODE "execute_process(COMMAND attrib +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/icon.ico\")")
+	set(${p_contentvar} ${_content_path} PARENT_SCOPE)
+	set(${p_resourcevar} ${_resource_path} PARENT_SCOPE)
+	set(${p_binvar} ${_binary_path} PARENT_SCOPE)
+endfunction()
+
+function(define_interface_vst3 p_name)
+	add_dependencies(vst3 ${p_name})
+	target_compile_definitions(${p_name} PRIVATE
+		TONPLUGINS_VST3
+	)
+
+	# Add some special files
+	if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+		target_sources(${p_name} PRIVATE
+			"${CMAKE_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/main/macexport.exp"
+		)
+	endif()
+
+	# VST3 Specific requirements
+	set_target_properties(${p_name} PROPERTIES
+		# MacOS requires this to be a bundle.
+		BUNDLE ON
+		BUNDLE_EXTENSION ".vst3"
+	)
+	if(APPLE)
+		set_target_properties(${p_name} PROPERTIES
+			# VST3 musts have no suffix.
+			SUFFIX ""
+		)
+	endif()
+	
+	# Packaging/Installing
+	calculate_install_path("${p_name}.vst3" _content_path _resource_path _binary_path)
+	if(NOT APPLE)
+		if(ON) # For global INSTALL
+			set(_path "${CMAKE_INSTALL_PREFIX_VST3}/TonPlugins/")
+
+			# - Resources
+			install(
+				DIRECTORY "${${p_name}_SOURCE_DIR}/resources/"
+				DESTINATION "${_path}${_resource_path}"
+				USE_SOURCE_PERMISSIONS OPTIONAL
+			)
+			install(
+				DIRECTORY "${${p_name}_BINARY_DIR}/resources/"
+				DESTINATION "${_path}${_resource_path}"
+				USE_SOURCE_PERMISSIONS OPTIONAL
+			)
+			# - Binaries
+			install(
+				FILES $<TARGET_FILE:${p_name}>
+				DESTINATION "${_path}${_binary_path}"
+				RENAME "$<TARGET_FILE_BASE_NAME:${p_name}>.vst3"
+			)
+			if(MSVC)
+				install(
+					FILES "$<TARGET_PDB_FILE:${p_name}>"
+					DESTINATION "${_path}${_binary_path}"
+					OPTIONAL
+				)
+			endif()
+			# - Extra Files
+			if(D_PLATFORM_WINDOWS)
+				# 'desktop.ini'
+				install(
+					FILES "other/desktop.ini"
+					DESTINATION "${_path}"
+					USE_SOURCE_PERMISSIONS
+					OPTIONAL
+				)
+				#install(CODE "execute_process(COMMAND attrib +S +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/desktop.ini\")")
+
+				# 'icon.ico'
+				install(
+					FILES "other/icon.ico"
+					DESTINATION "${_path}"
+					USE_SOURCE_PERMISSIONS OPTIONAL
+				)
+				#install(CODE "execute_process(COMMAND attrib +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/icon.ico\")")
+			endif()
+		endif()
+		if(ON) # For installers
+			set(_path "")
+
+			# - Resources
+			install(
+				DIRECTORY "${${p_name}_SOURCE_DIR}/resources/"
+				DESTINATION "${_path}${_resource_path}"
+				COMPONENT ${p_name}.vst3
+				USE_SOURCE_PERMISSIONS OPTIONAL EXCLUDE_FROM_ALL
+			)
+			install(
+				DIRECTORY "${${p_name}_BINARY_DIR}/resources/"
+				DESTINATION "${_path}${_resource_path}"
+				COMPONENT ${p_name}.vst3
+				USE_SOURCE_PERMISSIONS OPTIONAL EXCLUDE_FROM_ALL
+			)
+			# - Binaries
+			install(
+				FILES $<TARGET_FILE:${p_name}>
+				DESTINATION "${_path}${_binary_path}"
+				RENAME "$<TARGET_FILE_BASE_NAME:${p_name}>.vst3"
+				COMPONENT ${p_name}.vst3
+				EXCLUDE_FROM_ALL
+			)
+			if(MSVC)
+				install(
+					FILES "$<TARGET_PDB_FILE:${p_name}>"
+					DESTINATION "${_path}${_binary_path}"
+					COMPONENT ${p_name}.vst3
+					OPTIONAL EXCLUDE_FROM_ALL
+				)
+			endif()
+			# - Extra Files
+			if(D_PLATFORM_WINDOWS)
+				# 'desktop.ini'
+				install(
+					FILES "other/desktop.ini"
+					DESTINATION "${_path}"
+					USE_SOURCE_PERMISSIONS
+					COMPONENT ${p_name}.vst3
+					OPTIONAL EXCLUDE_FROM_ALL
+				)
+				#install(CODE "execute_process(COMMAND attrib +S +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/desktop.ini\")")
+
+				# 'icon.ico'
+				install(
+					FILES "other/icon.ico"
+					DESTINATION "${_path}"
+					COMPONENT ${p_name}.vst3
+					USE_SOURCE_PERMISSIONS OPTIONAL EXCLUDE_FROM_ALL
+				)
+				#install(CODE "execute_process(COMMAND attrib +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/icon.ico\")")
+			endif()
+		endif()
+	else()
+		install(TARGETS ${p_name}
+			BUNDLE DESTINATION "."
+		)
+	endif()
+endfunction()
+
+function(define_interface_vst2 p_name)
+	if(UNIX OR APPLE)
+		return()
+	endif()
+
+	add_dependencies(vst2 ${p_name})
+	target_compile_definitions(${p_name} PRIVATE
+		TONPLUGINS_VST2
+	)
+	target_link_libraries(${p_name} PUBLIC
+		# Steinberg VST2 SDK
+		vst2sdk
+	)
+	#target_sources(${p_name} PRIVATE
+	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.h"
+	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.cpp"
+	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.sdk.cpp"
+	#)
+	#set_source_files_properties(
+	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.h"
+	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.cpp"
+	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.sdk.cpp"
+	#	PROPERTIES
+	#	HEADER_FILE_ONLY ON
+	#)
+	#source_group(TREE "${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/" PREFIX "Steinberg" FILES
+	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.h"
+	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.cpp"
+	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.sdk.cpp"
+	#)
+
+	# Packaging/Installing
+	calculate_install_path("${p_name}" _content_path _resource_path _binary_path)
+	if(ON) # Once for the INSTALL target
+		set(_path "${CMAKE_INSTALL_PREFIX_VST2}/TonPlugins/")
+		
+		# - Resources
+		install(
+			DIRECTORY "${${p_name}_SOURCE_DIR}/resources/"
+			DESTINATION "${_path}${_resource_path}"
+			USE_SOURCE_PERMISSIONS OPTIONAL
+		)
+		install(
+			DIRECTORY "${${p_name}_BINARY_DIR}/resources/"
+			DESTINATION "${_path}${_resource_path}"
+			USE_SOURCE_PERMISSIONS OPTIONAL
+		)
+		# - Binaries
+		install(
+			FILES $<TARGET_FILE:${p_name}>
+			DESTINATION "${_path}${_binary_path}"
+			RENAME "$<TARGET_FILE_BASE_NAME:${p_name}>.dll"
+		)
+		if(MSVC)
+			install(
+				FILES "$<TARGET_PDB_FILE:${p_name}>"
+				DESTINATION "${_path}${_binary_path}"
+				OPTIONAL
+			)
+		endif()
+		# - Extra Files
+		if(D_PLATFORM_WINDOWS)
+			# 'desktop.ini'
+			install(
+				FILES "other/desktop.ini"
+				DESTINATION "${_path}"
+				USE_SOURCE_PERMISSIONS
+				OPTIONAL
+			)
+			#install(CODE "execute_process(COMMAND attrib +S +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/desktop.ini\")")
+
+			# 'icon.ico'
+			install(
+				FILES "other/icon.ico"
+				DESTINATION "${_path}"
+				USE_SOURCE_PERMISSIONS OPTIONAL
+			)
+			#install(CODE "execute_process(COMMAND attrib +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/icon.ico\")")
+		endif()
+	endif()
+	if(ON) # And again, for the installer
+		set(_path "")
+		
+		# - Resources
+		install(
+			DIRECTORY "${${p_name}_SOURCE_DIR}/resources/"
+			DESTINATION "${_path}${_resource_path}"
+			COMPONENT ${p_name}.vst2
+			USE_SOURCE_PERMISSIONS OPTIONAL EXCLUDE_FROM_ALL
+		)
+		install(
+			DIRECTORY "${${p_name}_BINARY_DIR}/resources/"
+			DESTINATION "${_path}${_resource_path}"
+			COMPONENT ${p_name}.vst2
+			USE_SOURCE_PERMISSIONS OPTIONAL EXCLUDE_FROM_ALL
+		)
+		# - Binaries
+		install(
+			FILES $<TARGET_FILE:${p_name}>
+			DESTINATION "${_path}${_binary_path}"
+			RENAME "$<TARGET_FILE_BASE_NAME:${p_name}>.dll"
+			COMPONENT ${p_name}.vst2
+			EXCLUDE_FROM_ALL
+		)
+		if(MSVC)
+			install(
+				FILES "$<TARGET_PDB_FILE:${p_name}>"
+				DESTINATION "${_path}${_binary_path}"
+				COMPONENT ${p_name}.vst2
+				OPTIONAL EXCLUDE_FROM_ALL
+			)
+		endif()
+		# - Extra Files
+		if(D_PLATFORM_WINDOWS)
+			# 'desktop.ini'
+			install(
+				FILES "other/desktop.ini"
+				DESTINATION "${_path}"
+				USE_SOURCE_PERMISSIONS
+				COMPONENT ${p_name}.vst2
+				OPTIONAL EXCLUDE_FROM_ALL
+			)
+			#install(CODE "execute_process(COMMAND attrib +S +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/desktop.ini\")")
+
+			# 'icon.ico'
+			install(
+				FILES "other/icon.ico"
+				DESTINATION "${_path}"
+				COMPONENT ${p_name}.vst2
+				USE_SOURCE_PERMISSIONS OPTIONAL EXCLUDE_FROM_ALL
+			)
+			#install(CODE "execute_process(COMMAND attrib +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/icon.ico\")")
+		endif()
 	endif()
 endfunction()
 
@@ -786,6 +926,17 @@ set(SMTG_CREATE_MODULE_INFO OFF CACHE BOOL "" FORCE)
 add_subdirectory("${PROJECT_SOURCE_DIR}/third-party/vst3sdk")
 set_target_properties(base cmake_modules cmake_VST_modules pluginterfaces sdk sdk_common sdk_hosting vstgui vstgui_standalone vstgui_support vstgui_uidescription validator VST3Inspector PROPERTIES
 	FOLDER "Steinberg"
+)
+
+################################################################################
+# Common Targets
+################################################################################
+add_custom_target(vst2)
+add_custom_target(vst3)
+set_target_properties(
+	vst2 vst3
+	PROPERTIES
+		FOLDER "Interfaces"
 )
 
 ################################################################################
