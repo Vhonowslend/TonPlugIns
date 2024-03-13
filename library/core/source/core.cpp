@@ -1,11 +1,11 @@
 // Copyright 2023 Michael Fabian 'Xaymar' Dirks <info@xaymar.com>
 
 #include "core.hpp"
-#include "version.hpp"
 #include "platform.hpp"
 
 #include "warning-disable.hpp"
 #include <chrono>
+#include <cinttypes>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -193,7 +193,7 @@ tonplugins::core::core(std::string app_name) : _app_name(app_name)
 		}
 	}
 
-	log("Loaded v%s.", tonplugins::get_version().to_string().c_str());
+	log("Loaded v%s.", TONPLUGINS_CORE_VERSION);
 
 #ifdef WIN32
 	// Log information about the Host process.

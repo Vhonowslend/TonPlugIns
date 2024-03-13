@@ -49,7 +49,7 @@ macro(detect_version p_version)
 	version(PARSE _VERSION "${_VERSION}" REQUIRE "PATCH;")
 
 	# If possible, automatically generate versions from git.
-	if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/.git")
+	if(EXISTS "${CMAKE_SOURCE_DIR}/.git")
 		find_program(GIT
 			NAMES
 				git
@@ -58,7 +58,14 @@ macro(detect_version p_version)
 
 		if(EXISTS "${GIT}")
 			# Try and calculate the exist version using git.
-			execute_process(COMMAND "${GIT}" describe --tags --long --abbrev=8 HEAD WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR} RESULT_VARIABLE GIT_RESULT OUTPUT_VARIABLE GIT_OUTPUT ERROR_VARIABLE GIT_ERROR OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+			execute_process(
+				COMMAND "${GIT}" describe --tags --long --abbrev=8 HEAD
+				WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+				RESULT_VARIABLE GIT_RESULT
+				OUTPUT_VARIABLE GIT_OUTPUT
+				ERROR_VARIABLE GIT_ERROR
+				OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_STRIP_TRAILING_WHITESPACE ERROR_QUIET
+			)
 			if((GIT_RESULT EQUAL 0) AND (NOT "${GIT_OUTPUT}" STREQUAL ""))
 				# Tags are guaranteed to be MAJOR.MINOR.PATCH(-PRERELEASE)-COMMITS-gHASH
 				string(REPLACE "-g" "+g" GIT_OUTPUT "${GIT_OUTPUT}") # Ensure gHASH ends up as build.
@@ -83,7 +90,14 @@ macro(detect_version p_version)
 					REQUIRE "PATCH;"
 				)
 			else()
-				execute_process(COMMAND "${GIT}" rev-list --count HEAD WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR} RESULT_VARIABLE GIT_RESULT OUTPUT_VARIABLE GIT_OUTPUT ERROR_VARIABLE GIT_ERROR OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+				execute_process(
+					COMMAND "${GIT}" rev-list --count HEAD
+					WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+					RESULT_VARIABLE GIT_RESULT
+					OUTPUT_VARIABLE GIT_OUTPUT
+					ERROR_VARIABLE GIT_ERROR
+					OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_STRIP_TRAILING_WHITESPACE ERROR_QUIET
+				)
 				if((GIT_RESULT EQUAL 0) AND (NOT "${GIT_OUTPUT}" STREQUAL ""))
 					version(MODIFY _VERSION "${_VERSION}"
 						PRERELEASE "alpha.${GIT_OUTPUT}"
@@ -91,7 +105,14 @@ macro(detect_version p_version)
 					)
 
 					# Determine the build using git.
-					execute_process(COMMAND "${GIT}" log -1 "--pretty=format:g%h" --abbrev=8 HEAD WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR} RESULT_VARIABLE GIT_RESULT OUTPUT_VARIABLE GIT_OUTPUT ERROR_VARIABLE GIT_ERROR OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+					execute_process(
+						COMMAND "${GIT}" log -1 "--pretty=format:g%h" --abbrev=8 HEAD
+						WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+						RESULT_VARIABLE GIT_RESULT
+						OUTPUT_VARIABLE GIT_OUTPUT
+						ERROR_VARIABLE GIT_ERROR
+						OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_STRIP_TRAILING_WHITESPACE ERROR_QUIET
+					)
 					if((GIT_RESULT EQUAL 0) AND (NOT "${GIT_OUTPUT}" STREQUAL ""))
 						version(MODIFY _VERSION "${_VERSION}"
 							BUILD "${GIT_OUTPUT}"
@@ -238,6 +259,39 @@ endif()
 function(define_target p_name p_type)
 	add_library(${p_name} ${p_type})
 	add_library(TonPlugIns::${p_name} ALIAS ${p_name})
+
+	message(STATUS "${PROJECT_NAME} ${p_name}")
+	if (PROJECT_NAME STREQUAL p_name) # Versioning
+		string(TOUPPER "${p_name}" u_name)
+		string(TOLOWER "${p_name}" l_name)
+		detect_version("${${PREFIX}${u_name}_VERSION}")
+		message(STATUS "Version ${_VERSION} (${PROJECT_VERSION})")
+
+		project(${p_name} VERSION ${PROJECT_VERSION})
+		list(JOIN _VERSION_PRERELEASE "." _VERSION_PRERELEASE)
+		list(JOIN _VERSION_BUILD "." _VERSION_BUILD)
+		target_compile_definitions(${p_name} PUBLIC
+			TONPLUGINS_${u_name}_VERSION="${_VERSION}"
+			TONPLUGINS_${u_name}_VERSION_MAJOR=${_VERSION_MAJOR}
+			TONPLUGINS_${u_name}_VERSION_MINOR=${_VERSION_MINOR}
+			TONPLUGINS_${u_name}_VERSION_PATCH=${_VERSION_PATCH}
+			TONPLUGINS_${u_name}_VERSION_PRERELEASE="${_VERSION_PRERELEASE}"
+			TONPLUGINS_${u_name}_VERSION_BUILD="${_VERSION_BUILD}"
+			TONPLUGINS_${u_name}_VERSION_CMAKE="${PROJECT_VERSION}"
+		)
+	endif()
+	if(WIN32)
+		configure_file(
+			"${CMAKE_SOURCE_DIR}/templates/include/version.rc.in"
+			"include/version.rc"
+		)
+	endif()
+
+	if(NOT ENABLE_FULL_VERSION)
+		target_compile_definitions(${p_name} PUBLIC
+			TONPLUGINS_DEMO
+		)
+	endif()
 
 	set_target_properties(${p_name} PROPERTIES
 		# Remove platform specific prefixes.
@@ -473,12 +527,6 @@ function(setup_target p_name)
 		generate_compile_commands_json(
 			TARGETS ${p_name}
 		)
-#		if(COMMAND clang_tidy)
-#			clang_tidy(
-#				TARGETS ${p_name}
-#				VERSION 9.0.0
-#			)
-#		endif()
 		if(COMMAND clang_format)
 			clang_format(
 				TARGETS ${p_name}
