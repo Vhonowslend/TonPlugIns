@@ -73,11 +73,17 @@ function(detect_version p_prefix p_version)
 
 				# Properly format the Pre-Release data
 				if(_GIT_VERSION_PRERELEASE MATCHES "([a-zA-Z\-]+)\.([0-9]+)-([0-9]+)")
-					# Add Pre-Release numbers together
-					math(EXPR _GIT_VERSION_PRERELEASE "${CMAKE_MATCH_2} + ${CMAKE_MATCH_3}")
-					set(_GIT_VERSION_PRERELEASE "${CMAKE_MATCH_1}.${_GIT_VERSION_PRERELEASE}")
+					if(NOT CMAKE_MATCH_3 EQUAL 0)
+						# Add Pre-Release numbers together
+						math(EXPR _GIT_VERSION_PRERELEASE "${CMAKE_MATCH_2} + ${CMAKE_MATCH_3}")
+						set(_GIT_VERSION_PRERELEASE "${CMAKE_MATCH_1}.${_GIT_VERSION_PRERELEASE}")
+					endif()
 				else()
-					set(_GIT_VERSION_PRERELEASE "alpha.${_GIT_VERSION_PRERELEASE}")
+					if(NOT _GIT_VERSION_PRERELEASE EQUAL 0)
+						set(_GIT_VERSION_PRERELEASE "alpha.${_GIT_VERSION_PRERELEASE}")
+					else()
+						set(_GIT_VERSION_PRERELEASE "")
+					endif()
 				endif()
 
 				# Modify the global version
