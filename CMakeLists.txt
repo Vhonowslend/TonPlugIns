@@ -686,6 +686,7 @@ function(define_interface_vst3)
 			cmake_language(EVAL CODE "install(
 				FILES \"$<TARGET_FILE:${_ARGS_NAME}>\"
 				DESTINATION \"${_path}${_binary_path}\"
+				RENAME \"$<TARGET_FILE_BASE_NAME:${_ARGS_NAME}>.vst3\"
 				${_install_args})"
 			)
 			if(MSVC)
