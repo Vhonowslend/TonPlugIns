@@ -1,16 +1,15 @@
 # Copyright 2023 Michael Fabian 'Xaymar' Dirks <info@xaymar.com>
 
-# CMake Setup
+################################################################################
+# Bootstrap
+################################################################################
 cmake_minimum_required(VERSION 3.26)
-list(APPEND CMAKE_MESSAGE_INDENT "[TonPlugIns] ")
-project(TonPlugIns)
 
-################################################################################
-# Modules
-################################################################################
+project(TonPlugIns)
+list(APPEND CMAKE_MESSAGE_INDENT "[${PROJECT_NAME}] ")
 
 # Search Paths
-set(CMAKE_MODULE_PATH
+list(APPEND CMAKE_MODULE_PATH
 	"${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules"
 	"${CMAKE_CURRENT_SOURCE_DIR}/cmake"
 )
@@ -38,13 +37,14 @@ endif()
 # Allow overriding version
 set(VERSION "" CACHE STRING "Override detected or pre-configured version with this string. Accepts strings in CMake and SemVer 2.0.0 format.")
 
+# Enable all features?
 set(ENABLE_FULL_VERSION ON CACHE BOOL "Enable the full feature set? (Do not enable for Demo/Free builds!)")
 
 ################################################################################
 # Versioning
 ################################################################################
 
-macro(detect_version p_version)
+function(detect_version p_prefix p_version)
 	version(GENERATE _VERSION COMPRESSED MAJOR 0 MINOR 0 PATCH 0 REQUIRE "PATCH;")
 	version(PARSE _VERSION "${_VERSION}" REQUIRE "PATCH;")
 
@@ -159,13 +159,22 @@ macro(detect_version p_version)
 		TWEAK "${CMAKE_MATCH_1}"
 		REQUIRE "PATCH;TWEAK"
 	)
-endmacro()
+
+	set(${p_prefix}_VERSION "${PROJECT_VERSION}" CACHE INTERNAL "")
+	set(${p_prefix}_SEMANTIC_VERSION "${_VERSION}" CACHE INTERNAL "")
+	set(${p_prefix}_VERSION_MAJOR "${_VERSION_MAJOR}" CACHE INTERNAL "")
+	set(${p_prefix}_VERSION_MINOR "${_VERSION_MINOR}" CACHE INTERNAL "")
+	set(${p_prefix}_VERSION_PATCH "${_VERSION_PATCH}" CACHE INTERNAL "")
+	set(${p_prefix}_VERSION_TWEAK "${PROJECT_VERSION_TWEAK}" CACHE INTERNAL "")
+	set(${p_prefix}_VERSION_BUILD "${_VERSION_BUILD}" CACHE INTERNAL "")
+	set(${p_prefix}_VERSION_PRERELEASE "${_VERSION_PRERELEASE}" CACHE INTERNAL "")
+endfunction()
 
 # Allow manual overrides of the detected version.
-detect_version(${PREFIX}VERSION)
+detect_version(${PROJECT_NAME} "VERSION")
 
 # Parse & Log the detected version.
-message(STATUS "Version ${_VERSION} (${PROJECT_VERSION})")
+message(STATUS "Version ${${CMAKE_PROJECT_NAME}_SEMANTIC_VERSION} (${${CMAKE_PROJECT_NAME}_VERSION})")
 
 ################################################################################
 # Project
@@ -256,27 +265,33 @@ endif()
 # Functions
 ################################################################################
 
+macro(propagate name)
+	set(${name} "${${name}}" PARENT_SCOPE)
+endmacro()
+
 function(define_target p_name p_type)
 	add_library(${p_name} ${p_type})
-	add_library(TonPlugIns::${p_name} ALIAS ${p_name})
+	add_library(${CMAKE_PROJECT_NAME}::${p_name} ALIAS ${p_name})
 
 	if (PROJECT_NAME STREQUAL p_name) # Versioning
 		string(TOUPPER "${p_name}" u_name)
 		string(TOLOWER "${p_name}" l_name)
-		detect_version("${${PREFIX}${u_name}_VERSION}")
-		message(STATUS "Version ${_VERSION} (${PROJECT_VERSION})")
+		detect_version(${CMAKE_PROJECT_NAME}_${p_name} "${${u_name}_VERSION}")
+		message(STATUS "Version ${${CMAKE_PROJECT_NAME}_${p_name}_SEMANTIC_VERSION} (${${CMAKE_PROJECT_NAME}_${p_name}_VERSION})")
 
-		project(${p_name} VERSION ${PROJECT_VERSION})
+		project(${p_name}
+			VERSION ${${CMAKE_PROJECT_NAME}_${p_name}_VERSION}
+		)
 		list(JOIN _VERSION_PRERELEASE "." _VERSION_PRERELEASE)
 		list(JOIN _VERSION_BUILD "." _VERSION_BUILD)
 		target_compile_definitions(${p_name} PUBLIC
-			TONPLUGINS_${u_name}_VERSION="${_VERSION}"
-			TONPLUGINS_${u_name}_VERSION_MAJOR=${_VERSION_MAJOR}
-			TONPLUGINS_${u_name}_VERSION_MINOR=${_VERSION_MINOR}
-			TONPLUGINS_${u_name}_VERSION_PATCH=${_VERSION_PATCH}
-			TONPLUGINS_${u_name}_VERSION_PRERELEASE="${_VERSION_PRERELEASE}"
-			TONPLUGINS_${u_name}_VERSION_BUILD="${_VERSION_BUILD}"
-			TONPLUGINS_${u_name}_VERSION_CMAKE="${PROJECT_VERSION}"
+			TONPLUGINS_${u_name}_VERSION="${${CMAKE_PROJECT_NAME}_${p_name}_SEMANTIC_VERSION}"
+			TONPLUGINS_${u_name}_VERSION_MAJOR=${${CMAKE_PROJECT_NAME}_${p_name}_VERSION_MAJOR}
+			TONPLUGINS_${u_name}_VERSION_MINOR=${${CMAKE_PROJECT_NAME}_${p_name}_VERSION_MINOR}
+			TONPLUGINS_${u_name}_VERSION_PATCH=${${CMAKE_PROJECT_NAME}_${p_name}_VERSION_PATCH}
+			TONPLUGINS_${u_name}_VERSION_PRERELEASE="${${CMAKE_PROJECT_NAME}_${p_name}_VERSION_PRERELEASE}"
+			TONPLUGINS_${u_name}_VERSION_BUILD="${${CMAKE_PROJECT_NAME}_${p_name}_VERSION_BUILD}"
+			TONPLUGINS_${u_name}_VERSION_CMAKE="${${CMAKE_PROJECT_NAME}_${p_name}_VERSION}"
 		)
 	endif()
 	if(WIN32)
@@ -546,7 +561,7 @@ function(define_library p_name)
 endfunction()
 
 function(calculate_install_path p_name p_contentvar p_resourcevar p_binvar)
-	set(_content_path "${p_name}/Contents")
+	set(_content_path "Contents")
 	set(_resource_path "${_content_path}/Resources")
 	set(_binary_path "${_content_path}/")
 	if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -588,9 +603,27 @@ function(calculate_install_path p_name p_contentvar p_resourcevar p_binvar)
 	set(${p_binvar} ${_binary_path} PARENT_SCOPE)
 endfunction()
 
-function(define_interface_vst3 p_name)
-	add_dependencies(vst3 ${p_name})
-	target_compile_definitions(${p_name} PRIVATE
+function(generate_guid p_name p_out)
+	string(MD5 _tmp "${p_name}")
+	string(REGEX REPLACE "([a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9])([a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9])([a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9])([a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9])([a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9])" "\\1-\\2-\\3-\\4-\\5" _tmp "${_tmp}")
+	string(TOUPPER "${_tmp}" _tmp)
+	set(${p_out} "${_tmp}" PARENT_SCOPE)
+endfunction()
+
+function(define_interface_vst3)
+	cmake_parse_arguments(PARSE_ARGV 0
+		_ARGS
+		""
+		"NAME;UUID"
+		""
+	)
+	if(NOT _ARGS_UUID)
+		generate_guid("${_ARGS_NAME}.vst3" _ARGS_UUID)
+	endif()
+	message(STATUS "VST 3.x UUID is ${_ARGS_UUID}")
+
+	# Add compile definition so the target knows we're building VST3s.
+	target_compile_definitions(${_ARGS_NAME} PRIVATE
 		TONPLUGINS_VST3
 	)
 
@@ -613,266 +646,255 @@ function(define_interface_vst3 p_name)
 			SUFFIX ""
 		)
 	endif()
-	
+
+	# Add as a dependency to the VST3 build target
+	add_dependencies(VST3 ${_ARGS_NAME})
+
 	# Packaging/Installing
-	calculate_install_path("${p_name}.vst3" _content_path _resource_path _binary_path)
+	calculate_install_path("${_ARGS_NAME}.vst3" _content_path _resource_path _binary_path)
 	if(NOT APPLE)
-		if(ON) # For global INSTALL
-			set(_path "${CMAKE_INSTALL_PREFIX_VST3}/TonPlugins/")
+		foreach(_V INSTALL;INSTALLER)
+			if(_V STREQUAL "INSTALL")
+				set(_path "${CMAKE_INSTALL_PREFIX_VST3}/TonPlugins/${p_name}.vst3/")
+				set(_install_args "")
+			else()
+				set(_path "")
+				set(_install_args "COMPONENT ${_ARGS_NAME}.Installer.VST3 EXCLUDE_FROM_ALL")
+			endif()
 
 			# - Resources
-			install(
-				DIRECTORY "${${p_name}_SOURCE_DIR}/resources/"
-				DESTINATION "${_path}${_resource_path}"
+			cmake_language(EVAL CODE "install(
+				DIRECTORY \"${${_ARGS_NAME}_SOURCE_DIR}/resources/\"
+				DESTINATION \"${_path}${_resource_path}\"
 				USE_SOURCE_PERMISSIONS OPTIONAL
+				${_install_args})"
 			)
-			install(
-				DIRECTORY "${${p_name}_BINARY_DIR}/resources/"
-				DESTINATION "${_path}${_resource_path}"
+			cmake_language(EVAL CODE "install(
+				DIRECTORY \"${${_ARGS_NAME}_BINARY_DIR}/resources/\"
+				DESTINATION \"${_path}${_resource_path}\"
 				USE_SOURCE_PERMISSIONS OPTIONAL
+				${_install_args})"
 			)
+
 			# - Binaries
-			install(
-				FILES $<TARGET_FILE:${p_name}>
-				DESTINATION "${_path}${_binary_path}"
-				RENAME "$<TARGET_FILE_BASE_NAME:${p_name}>.vst3"
+			cmake_language(EVAL CODE "install(
+				FILES \"$<TARGET_FILE:${_ARGS_NAME}>\"
+				DESTINATION \"${_path}${_binary_path}\"
+				${_install_args})"
 			)
 			if(MSVC)
-				install(
-					FILES "$<TARGET_PDB_FILE:${p_name}>"
-					DESTINATION "${_path}${_binary_path}"
+				cmake_language(EVAL CODE "install(
+					FILES \"$<TARGET_PDB_FILE:${_ARGS_NAME}>\"
+					DESTINATION \"${_path}${_binary_path}\"
 					OPTIONAL
+					${_install_args})"
 				)
 			endif()
+
 			# - Extra Files
 			if(D_PLATFORM_WINDOWS)
 				# 'desktop.ini'
-				install(
-					FILES "other/desktop.ini"
-					DESTINATION "${_path}"
+				cmake_language(EVAL CODE "install(
+					FILES \"other/desktop.ini\"
+					DESTINATION \"${_path}\"
 					USE_SOURCE_PERMISSIONS
 					OPTIONAL
+					${_install_args})"
 				)
-				#install(CODE "execute_process(COMMAND attrib +S +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/desktop.ini\")")
 
 				# 'icon.ico'
-				install(
-					FILES "other/icon.ico"
-					DESTINATION "${_path}"
+				cmake_language(EVAL CODE "install(
+					FILES \"other/icon.ico\"
+					DESTINATION \"${_path}\"
 					USE_SOURCE_PERMISSIONS OPTIONAL
-				)
-				#install(CODE "execute_process(COMMAND attrib +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/icon.ico\")")
-			endif()
-		endif()
-		if(ON) # For installers
-			set(_path "")
-
-			# - Resources
-			install(
-				DIRECTORY "${${p_name}_SOURCE_DIR}/resources/"
-				DESTINATION "${_path}${_resource_path}"
-				COMPONENT ${p_name}.vst3
-				USE_SOURCE_PERMISSIONS OPTIONAL EXCLUDE_FROM_ALL
-			)
-			install(
-				DIRECTORY "${${p_name}_BINARY_DIR}/resources/"
-				DESTINATION "${_path}${_resource_path}"
-				COMPONENT ${p_name}.vst3
-				USE_SOURCE_PERMISSIONS OPTIONAL EXCLUDE_FROM_ALL
-			)
-			# - Binaries
-			install(
-				FILES $<TARGET_FILE:${p_name}>
-				DESTINATION "${_path}${_binary_path}"
-				RENAME "$<TARGET_FILE_BASE_NAME:${p_name}>.vst3"
-				COMPONENT ${p_name}.vst3
-				EXCLUDE_FROM_ALL
-			)
-			if(MSVC)
-				install(
-					FILES "$<TARGET_PDB_FILE:${p_name}>"
-					DESTINATION "${_path}${_binary_path}"
-					COMPONENT ${p_name}.vst3
-					OPTIONAL EXCLUDE_FROM_ALL
+					${_install_args})"
 				)
 			endif()
-			# - Extra Files
-			if(D_PLATFORM_WINDOWS)
-				# 'desktop.ini'
-				install(
-					FILES "other/desktop.ini"
-					DESTINATION "${_path}"
-					USE_SOURCE_PERMISSIONS
-					COMPONENT ${p_name}.vst3
-					OPTIONAL EXCLUDE_FROM_ALL
-				)
-				#install(CODE "execute_process(COMMAND attrib +S +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/desktop.ini\")")
-
-				# 'icon.ico'
-				install(
-					FILES "other/icon.ico"
-					DESTINATION "${_path}"
-					COMPONENT ${p_name}.vst3
-					USE_SOURCE_PERMISSIONS OPTIONAL EXCLUDE_FROM_ALL
-				)
-				#install(CODE "execute_process(COMMAND attrib +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/icon.ico\")")
-			endif()
-		endif()
+		endforeach()
 	else()
 		install(TARGETS ${p_name}
 			BUNDLE DESTINATION "."
 		)
 	endif()
+
+	# Installer
+	if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
+		set(ISS_FILES_DIR ${PROJECT_BINARY_DIR}/distrib/vst3)
+		set(ISS_PACKAGE_DIR ${CMAKE_BINARY_DIR}/distrib)
+		if (ENABLE_FULL_VERSION)
+			set(ISS_PACKAGE_NAME "${_ARGS_NAME} (VST 3.x, ${${CMAKE_PROJECT_NAME}_${_ARGS_NAME}_SEMANTIC_VERSION}, ${${CMAKE_PROJECT_NAME}_SEMANTIC_VERSION})")
+		else()
+			set(ISS_PACKAGE_NAME "${_ARGS_NAME} (Demo, VST 3.x, ${${CMAKE_PROJECT_NAME}_${_ARGS_NAME}_SEMANTIC_VERSION}, ${${CMAKE_PROJECT_NAME}_SEMANTIC_VERSION})")
+		endif()
+		configure_file(
+			"${CMAKE_SOURCE_DIR}/templates/installer/vst3.iss.in"
+			"installer/vst3.iss"
+		)
+
+		add_custom_target("${_ARGS_NAME}.Installer.VST3"
+			COMMAND ${CMAKE_COMMAND} "--install" "${CMAKE_BINARY_DIR}" "--config" "$<CONFIG>" "--component" "${_ARGS_NAME}.Installer.VST3" "--prefix" "${ISS_FILES_DIR}"
+			COMMAND_EXPAND_LISTS
+			DEPENDS "${_ARGS_NAME}"
+		)
+		set_target_properties("${_ARGS_NAME}.Installer.VST3" PROPERTIES
+			FOLDER "TonPlugins/Plugins/${_ARGS_NAME}"
+			PROJECT_LABEL "${_ARGS_NAME}.Installer.VST3"
+		)
+		add_custom_command(TARGET "${_ARGS_NAME}.Installer.VST3" POST_BUILD
+			COMMAND "iscc.exe"
+			ARGS "${PROJECT_BINARY_DIR}/installer/vst3.iss"
+		)
+	endif()
 endfunction()
 
-function(define_interface_vst2 p_name)
+function(define_interface_vst2)
+	cmake_parse_arguments(PARSE_ARGV 0
+		_ARGS
+		""
+		"NAME;UUID"
+		""
+	)
+	if(NOT _ARGS_UUID)
+		generate_guid("${_ARGS_NAME}.vst2" _ARGS_UUID)
+	endif()
+	message(STATUS "VST 2.x UUID is ${_ARGS_UUID}")
+
 	if(UNIX OR APPLE)
 		return()
 	endif()
 
-	add_dependencies(vst2 ${p_name})
-	target_compile_definitions(${p_name} PRIVATE
+	target_compile_definitions(${_ARGS_NAME} PRIVATE
 		TONPLUGINS_VST2
 	)
-	target_link_libraries(${p_name} PUBLIC
+	target_link_libraries(${_ARGS_NAME} PUBLIC
 		# Steinberg VST2 SDK
 		vst2sdk
 	)
-	#target_sources(${p_name} PRIVATE
-	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.h"
-	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.cpp"
-	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.sdk.cpp"
-	#)
-	#set_source_files_properties(
-	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.h"
-	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.cpp"
-	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.sdk.cpp"
-	#	PROPERTIES
-	#	HEADER_FILE_ONLY ON
-	#)
-	#source_group(TREE "${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/" PREFIX "Steinberg" FILES
-	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.h"
-	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.cpp"
-	#	"${TonPlugIns_SOURCE_DIR}/third-party/vst3sdk/public.sdk/source/vst/vst2wrapper/vst2wrapper.sdk.cpp"
-	#)
+
+	# Add to global interface target
+	add_dependencies(VST2 ${_ARGS_NAME})
 
 	# Packaging/Installing
-	calculate_install_path("${p_name}" _content_path _resource_path _binary_path)
-	if(ON) # Once for the INSTALL target
-		set(_path "${CMAKE_INSTALL_PREFIX_VST2}/TonPlugins/")
-		
-		# - Resources
-		install(
-			DIRECTORY "${${p_name}_SOURCE_DIR}/resources/"
-			DESTINATION "${_path}${_resource_path}"
-			USE_SOURCE_PERMISSIONS OPTIONAL
-		)
-		install(
-			DIRECTORY "${${p_name}_BINARY_DIR}/resources/"
-			DESTINATION "${_path}${_resource_path}"
-			USE_SOURCE_PERMISSIONS OPTIONAL
-		)
-		# - Binaries
-		install(
-			FILES $<TARGET_FILE:${p_name}>
-			DESTINATION "${_path}${_binary_path}"
-			RENAME "$<TARGET_FILE_BASE_NAME:${p_name}>.dll"
-		)
-		if(MSVC)
-			install(
-				FILES "$<TARGET_PDB_FILE:${p_name}>"
-				DESTINATION "${_path}${_binary_path}"
-				OPTIONAL
-			)
-		endif()
-		# - Extra Files
-		if(D_PLATFORM_WINDOWS)
-			# 'desktop.ini'
-			install(
-				FILES "other/desktop.ini"
-				DESTINATION "${_path}"
-				USE_SOURCE_PERMISSIONS
-				OPTIONAL
-			)
-			#install(CODE "execute_process(COMMAND attrib +S +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/desktop.ini\")")
+	calculate_install_path("${_ARGS_NAME}.vst2" _content_path _resource_path _binary_path)
+	if(NOT APPLE)
+		foreach(_V INSTALL;INSTALLER)
+			if(_V STREQUAL "INSTALL")
+				set(_path "${CMAKE_INSTALL_PREFIX_VST2}/TonPlugins/")
+				set(_install_args "")
+			else()
+				set(_path "")
+				set(_install_args "COMPONENT ${_ARGS_NAME}.Installer.VST2 EXCLUDE_FROM_ALL")
+			endif()
 
-			# 'icon.ico'
-			install(
-				FILES "other/icon.ico"
-				DESTINATION "${_path}"
+			# - Resources
+			cmake_language(EVAL CODE "install(
+				DIRECTORY \"${${_ARGS_NAME}_SOURCE_DIR}/resources/\"
+				DESTINATION \"${_path}${_resource_path}\"
 				USE_SOURCE_PERMISSIONS OPTIONAL
+				${_install_args})"
 			)
-			#install(CODE "execute_process(COMMAND attrib +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/icon.ico\")")
-		endif()
-	endif()
-	if(ON) # And again, for the installer
-		set(_path "")
-		
-		# - Resources
-		install(
-			DIRECTORY "${${p_name}_SOURCE_DIR}/resources/"
-			DESTINATION "${_path}${_resource_path}"
-			COMPONENT ${p_name}.vst2
-			USE_SOURCE_PERMISSIONS OPTIONAL EXCLUDE_FROM_ALL
-		)
-		install(
-			DIRECTORY "${${p_name}_BINARY_DIR}/resources/"
-			DESTINATION "${_path}${_resource_path}"
-			COMPONENT ${p_name}.vst2
-			USE_SOURCE_PERMISSIONS OPTIONAL EXCLUDE_FROM_ALL
-		)
-		# - Binaries
-		install(
-			FILES $<TARGET_FILE:${p_name}>
-			DESTINATION "${_path}${_binary_path}"
-			RENAME "$<TARGET_FILE_BASE_NAME:${p_name}>.dll"
-			COMPONENT ${p_name}.vst2
-			EXCLUDE_FROM_ALL
-		)
-		if(MSVC)
-			install(
-				FILES "$<TARGET_PDB_FILE:${p_name}>"
-				DESTINATION "${_path}${_binary_path}"
-				COMPONENT ${p_name}.vst2
-				OPTIONAL EXCLUDE_FROM_ALL
+			cmake_language(EVAL CODE "install(
+				DIRECTORY \"${${_ARGS_NAME}_BINARY_DIR}/resources/\"
+				DESTINATION \"${_path}${_resource_path}\"
+				USE_SOURCE_PERMISSIONS OPTIONAL
+				${_install_args})"
 			)
-		endif()
-		# - Extra Files
-		if(D_PLATFORM_WINDOWS)
-			# 'desktop.ini'
-			install(
-				FILES "other/desktop.ini"
-				DESTINATION "${_path}"
-				USE_SOURCE_PERMISSIONS
-				COMPONENT ${p_name}.vst2
-				OPTIONAL EXCLUDE_FROM_ALL
-			)
-			#install(CODE "execute_process(COMMAND attrib +S +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/desktop.ini\")")
 
-			# 'icon.ico'
-			install(
-				FILES "other/icon.ico"
-				DESTINATION "${_path}"
-				COMPONENT ${p_name}.vst2
-				USE_SOURCE_PERMISSIONS OPTIONAL EXCLUDE_FROM_ALL
+			# - Binaries
+			cmake_language(EVAL CODE "install(
+				FILES \"$<TARGET_FILE:${_ARGS_NAME}>\"
+				DESTINATION \"${_path}${_binary_path}\"
+				RENAME \"$<TARGET_FILE_BASE_NAME:${_ARGS_NAME}>.${CMAKE_SHARED_MODULE_SUFFIX}\"
+				${_install_args})"
 			)
-			#install(CODE "execute_process(COMMAND attrib +H \"${CMAKE_INSTALL_PREFIX}/${VST3_INSTALL_PREFIX}/icon.ico\")")
-		endif()
+			if(MSVC)
+				cmake_language(EVAL CODE "install(
+					FILES \"$<TARGET_PDB_FILE:${_ARGS_NAME}>\"
+					DESTINATION \"${_path}${_binary_path}\"
+					OPTIONAL
+					${_install_args})"
+				)
+			endif()
+
+			# - Extra Files
+			if(D_PLATFORM_WINDOWS)
+				# 'desktop.ini'
+				cmake_language(EVAL CODE "install(
+					FILES \"other/desktop.ini\"
+					DESTINATION \"${_path}\"
+					USE_SOURCE_PERMISSIONS OPTIONAL
+					${_install_args})"
+				)
+
+				# 'icon.ico'
+				cmake_language(EVAL CODE "install(
+					FILES \"other/icon.ico\"
+					DESTINATION \"${_path}\"
+					USE_SOURCE_PERMISSIONS OPTIONAL
+					${_install_args})"
+				)
+			endif()
+		endforeach()
 	endif()
+
+	# Installer
+	if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
+		set(ISS_FILES_DIR ${PROJECT_BINARY_DIR}/distrib/vst2)
+		set(ISS_PACKAGE_DIR ${CMAKE_BINARY_DIR}/distrib)
+		if (ENABLE_FULL_VERSION)
+			set(ISS_PACKAGE_NAME "${_ARGS_NAME} (VST 2.x, ${${CMAKE_PROJECT_NAME}_${_ARGS_NAME}_SEMANTIC_VERSION}, ${${CMAKE_PROJECT_NAME}_SEMANTIC_VERSION})")
+		else()
+			set(ISS_PACKAGE_NAME "${_ARGS_NAME} (Demo, VST 2.x, ${${CMAKE_PROJECT_NAME}_${_ARGS_NAME}_SEMANTIC_VERSION}, ${${CMAKE_PROJECT_NAME}_SEMANTIC_VERSION})")
+		endif()
+		configure_file(
+			"${CMAKE_SOURCE_DIR}/templates/installer/vst2.iss.in"
+			"installer/vst2.iss"
+		)
+
+		add_custom_target("${_ARGS_NAME}.Installer.VST2"
+			COMMAND ${CMAKE_COMMAND} "--install" "${CMAKE_BINARY_DIR}" "--config" "$<CONFIG>" "--component" "${_ARGS_NAME}.Installer.VST2" "--prefix" "${ISS_FILES_DIR}"
+			COMMAND_EXPAND_LISTS
+			DEPENDS "${_ARGS_NAME}"
+		)
+		set_target_properties("${_ARGS_NAME}.Installer.VST2" PROPERTIES
+			FOLDER "TonPlugins/Plugins/${_ARGS_NAME}"
+			PROJECT_LABEL "${_ARGS_NAME}.Installer.VST2"
+		)
+		add_custom_command(TARGET "${_ARGS_NAME}.Installer.VST2" POST_BUILD
+			COMMAND "iscc.exe"
+			ARGS "${PROJECT_BINARY_DIR}/installer/vst2.iss"
+		)
+	endif()
+endfunction()
+
+function(define_interface_aax)
+	cmake_parse_arguments(PARSE_ARGV 0
+		_ARGS
+		""
+		"NAME;UUID"
+		""
+	)
+	if(NOT _ARGS_UUID)
+		generate_guid("${_ARGS_NAME}.aax" _ARGS_UUID)
+	endif()
+	message("AAX UUID is ${_ARGS_UUID}")
+
+	# Add to global interface target
+	add_dependencies(AAX ${p_name})
 endfunction()
 
 function(define_plugin)
 	cmake_parse_arguments(PARSE_ARGV 0
 		_ARGS
-		"VST3;AAX"
-		"NAME"
+		"VST2;AAX"
+		"NAME;VST3_UUID;VST2_UUID;AAX_UUID"
 		""
 	)
 	define_target(${_ARGS_NAME} MODULE)
 
 	# List it in the correct directory.
 	set_target_properties(${_ARGS_NAME} PROPERTIES
-		FOLDER "TonPlugins/Plugins"
+		FOLDER "TonPlugins/Plugins/${_ARGS_NAME}"
 		PROJECT_LABEL "${_ARGS_NAME}"
 	)
 
@@ -889,12 +911,12 @@ function(define_plugin)
 	target_compile_definitions(${_ARGS_NAME} PUBLIC $<$<CONFIG:Debug>:VSTGUI_LIVE_EDITING=1> )
 
 	# Define Interfaces
-	define_interface_vst3(${_ARGS_NAME}) # VST 3.x
-	if(_ARGS_VST2) 
-		define_interface_vst2(${_ARGS_NAME}) # VST 2.x
+	define_interface_vst3(NAME ${_ARGS_NAME} UUID ${_ARGS_VST3_UUID}) # VST 3.x
+	if(_ARGS_VST2)
+		define_interface_vst2(NAME ${_ARGS_NAME} UUID ${_ARGS_VST2_UUID}) # VST 2.x
 	endif()
-	if(_ARGS_AAX) 
-		define_interface_aax(${_ARGS_NAME}) # AAX
+	if(_ARGS_AAX)
+		define_interface_aax(NAME ${_ARGS_NAME} UUID ${_ARGS_AAX_UUID}) # AAX
 	endif()
 endfunction()
 
@@ -940,10 +962,14 @@ set_target_properties(base cmake_modules cmake_VST_modules pluginterfaces sdk sd
 ################################################################################
 # Common Targets
 ################################################################################
-add_custom_target(vst2)
-add_custom_target(vst3)
+add_custom_target(VST2)
+
+add_custom_target(VST3)
+
+add_custom_target(AAX)
+
 set_target_properties(
-	vst2 vst3
+	VST2 VST3 AAX
 	PROPERTIES
 		FOLDER "Interfaces"
 )
