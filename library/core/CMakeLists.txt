@@ -4,9 +4,8 @@
 # Bootstrap
 ################################################################################
 cmake_minimum_required(VERSION 3.26)
-list(APPEND CMAKE_MESSAGE_INDENT "[VoiceFX] ")
-
 project(Core)
+list(APPEND CMAKE_MESSAGE_INDENT "[${PROJECT_NAME}] ")
 define_library(${PROJECT_NAME})
 
 ################################################################################

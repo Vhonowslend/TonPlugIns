@@ -260,7 +260,6 @@ function(define_target p_name p_type)
 	add_library(${p_name} ${p_type})
 	add_library(TonPlugIns::${p_name} ALIAS ${p_name})
 
-	message(STATUS "${PROJECT_NAME} ${p_name}")
 	if (PROJECT_NAME STREQUAL p_name) # Versioning
 		string(TOUPPER "${p_name}" u_name)
 		string(TOLOWER "${p_name}" l_name)
@@ -862,31 +861,41 @@ function(define_interface_vst2 p_name)
 	endif()
 endfunction()
 
-function(define_plugin p_name)
-	message(STATUS "Defining plugin '${p_name}'...")
-	define_target(${p_name} MODULE)
-	set_target_properties(${p_name} PROPERTIES
+function(define_plugin)
+	cmake_parse_arguments(PARSE_ARGV 0
+		_ARGS
+		"VST3;AAX"
+		"NAME"
+		""
+	)
+	define_target(${_ARGS_NAME} MODULE)
+
+	# List it in the correct directory.
+	set_target_properties(${_ARGS_NAME} PROPERTIES
 		FOLDER "TonPlugins/Plugins"
-		PROJECT_LABEL "${p_name}"
+		PROJECT_LABEL "${_ARGS_NAME}"
 	)
 
 	# Add the common library to the whole mix.
-	target_link_libraries(${p_name} PUBLIC
-		# Steinberg VSTGUI
-		vstgui_support
+	target_link_libraries(${_ARGS_NAME} PUBLIC
 		# TonPlugins
 		TonPlugIns::Core
 		# Steinberg VST3 SDK
 		sdk
 	)
-	target_compile_definitions(${p_name} PUBLIC
-		$<$<CONFIG:Debug>:VSTGUI_LIVE_EDITING=1>
-	)
 
-	# VST 3.x
-	define_interface_vst3(${p_name})
-	# VST 2.x
-	define_interface_vst2(${p_name})
+	# Add VSTGUI
+	target_link_libraries(${_ARGS_NAME} PUBLIC vstgui_support )
+	target_compile_definitions(${_ARGS_NAME} PUBLIC $<$<CONFIG:Debug>:VSTGUI_LIVE_EDITING=1> )
+
+	# Define Interfaces
+	define_interface_vst3(${_ARGS_NAME}) # VST 3.x
+	if(_ARGS_VST2) 
+		define_interface_vst2(${_ARGS_NAME}) # VST 2.x
+	endif()
+	if(_ARGS_AAX) 
+		define_interface_aax(${_ARGS_NAME}) # AAX
+	endif()
 endfunction()
 
 ################################################################################
