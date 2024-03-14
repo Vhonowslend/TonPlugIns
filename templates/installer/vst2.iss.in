@@ -9,7 +9,7 @@
 #define MyAppCopyright "@PROJECT_COPYRIGHT@"
 
 [Setup]
-AppId={{@PROJECT_GUID_VST2@}}
+AppId={{@_ARGS_UUID@}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersionText}
 AppVerName={#MyAppName} v{#MyAppVersionText}
