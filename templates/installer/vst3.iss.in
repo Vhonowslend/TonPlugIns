@@ -62,7 +62,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Source: "@ISS_FILES_DIR@/Contents/*"; DestDir: "{app}/Contents"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "@ISS_FILES_DIR@/desktop.ini"; DestDir: "{app}"; Attribs: hidden system; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "@ISS_FILES_DIR@/icon.ico"; DestDir: "{app}"; Attribs: hidden; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "@PROJECT_SOURCE_DIR@/third-party/msvc-redist-helper.exe"; DestDir: "{app}"; DestName: "msvc-redist-helper.exe"; Flags: ignoreversion dontcopy noencryption
+Source: "@CMAKE_SOURCE_DIR@/third-party/msvc-redist-helper.exe"; DestDir: "{app}"; DestName: "msvc-redist-helper.exe"; Flags: ignoreversion dontcopy noencryption
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
