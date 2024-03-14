@@ -812,7 +812,7 @@ function(define_interface_vst2)
 			cmake_language(EVAL CODE "install(
 				FILES \"$<TARGET_FILE:${_ARGS_NAME}>\"
 				DESTINATION \"${_path}${_binary_path}\"
-				RENAME \"$<TARGET_FILE_BASE_NAME:${_ARGS_NAME}>.${CMAKE_SHARED_MODULE_SUFFIX}\"
+				RENAME \"$<TARGET_FILE_BASE_NAME:${_ARGS_NAME}>${CMAKE_SHARED_MODULE_SUFFIX}\"
 				${_install_args})"
 			)
 			if(MSVC)
