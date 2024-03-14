@@ -739,6 +739,7 @@ function(define_interface_vst3)
 		)
 
 		add_custom_target("${_ARGS_NAME}.Installer.VST3"
+			COMMAND ${CMAKE_COMMAND} -E rm -r -- "${ISS_FILES_DIR}"
 			COMMAND ${CMAKE_COMMAND} "--install" "${CMAKE_BINARY_DIR}" "--config" "$<CONFIG>" "--component" "${_ARGS_NAME}.Installer.VST3" "--prefix" "${ISS_FILES_DIR}"
 			COMMAND_EXPAND_LISTS
 			DEPENDS "${_ARGS_NAME}"
@@ -859,6 +860,7 @@ function(define_interface_vst2)
 		)
 
 		add_custom_target("${_ARGS_NAME}.Installer.VST2"
+			COMMAND ${CMAKE_COMMAND} -E rm -r -- "${ISS_FILES_DIR}"
 			COMMAND ${CMAKE_COMMAND} "--install" "${CMAKE_BINARY_DIR}" "--config" "$<CONFIG>" "--component" "${_ARGS_NAME}.Installer.VST2" "--prefix" "${ISS_FILES_DIR}"
 			COMMAND_EXPAND_LISTS
 			DEPENDS "${_ARGS_NAME}"
