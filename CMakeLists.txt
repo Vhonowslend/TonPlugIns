@@ -5,6 +5,9 @@
 ################################################################################
 cmake_minimum_required(VERSION 3.26)
 
+# Limit to Release and Debug (Steinberg messes with this too)
+set(CMAKE_CONFIGURATION_TYPES "Release" "Debug")
+
 project(TonPlugIns)
 list(APPEND CMAKE_MESSAGE_INDENT "[${PROJECT_NAME}] ")
 
@@ -382,11 +385,10 @@ function(setup_target_compiler p_name)
 			# Enable updated __cplusplus macro
 			"/Zc:__cplusplus"
 			# Use static CRT
-			$<$<CONFIG:>:/MT>
 			$<$<CONFIG:Debug>:/MTd>
 			$<$<CONFIG:Release>:/MT>
-			$<$<CONFIG:RelWithDebInfo>:/MT>
-			$<$<CONFIG:MinSizeRel>:/MT>
+			# Enable Function Level Linking
+			"/Gy"
 		)
 		target_compile_definitions(${p_name} PRIVATE
 			# We want C++, not MSVC++.
@@ -661,7 +663,7 @@ function(define_interface_vst3)
 	if(NOT APPLE)
 		foreach(_V INSTALL;INSTALLER)
 			if(_V STREQUAL "INSTALL")
-				set(_path "${CMAKE_INSTALL_PREFIX_VST3}/TonPlugins/${p_name}.vst3/")
+				set(_path "${CMAKE_INSTALL_PREFIX_VST3}/TonPlugins/${_ARGS_NAME}.vst3/")
 				set(_install_args "")
 			else()
 				set(_path "")
@@ -787,7 +789,7 @@ function(define_interface_vst2)
 	if(NOT APPLE)
 		foreach(_V INSTALL;INSTALLER)
 			if(_V STREQUAL "INSTALL")
-				set(_path "${CMAKE_INSTALL_PREFIX_VST2}/TonPlugins/")
+				set(_path "${CMAKE_INSTALL_PREFIX_VST2}/TonPlugins/${_ARGS_NAME}/")
 				set(_install_args "")
 			else()
 				set(_path "")
