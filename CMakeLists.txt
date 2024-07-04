@@ -273,6 +273,30 @@ else()
 	set(INSTALL_PREFIX_VST2 "vst2")
 endif()
 
+# Find InnoSetup
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+	function(is_valid_innosetup result path)
+		if(EXISTS "${path}/ISCC.exe")
+			set(${result} TRUE PARENT_SCOPE)
+		else()
+			set(${result} FALSE PARENT_SCOPE)
+		endif()		
+	endfunction()
+
+	find_path(
+		ISS_PATH
+		NAMES
+			ISCC.exe
+		HINTS
+			"/root/HKLM/SOFTWARE/WOW6432Node/Microsoft/Windows/CurrentVersion/Uninstall/Inno Setup 6_is1/InstallLocation"
+			"C:/Program Files (x86)/Inno Setup 6"
+			"C:/Program Files/Inno Setup 6"
+		REGISTRY_VIEW HOST
+		DOC "Path to ISCC.exe from InnoSetup"
+	)
+	# "Computer\HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1"
+endif()
+
 ################################################################################
 # Functions
 ################################################################################
@@ -756,7 +780,7 @@ function(define_interface_vst3)
 			PROJECT_LABEL "${_ARGS_NAME}.Installer.VST3"
 		)
 		add_custom_command(TARGET "${_ARGS_NAME}.Installer.VST3" POST_BUILD
-			COMMAND "iscc.exe"
+			COMMAND "${ISS_PATH}/iscc.exe"
 			ARGS "${PROJECT_BINARY_DIR}/installer/vst3.iss"
 		)
 	endif()
@@ -879,7 +903,7 @@ function(define_interface_vst2)
 			PROJECT_LABEL "${_ARGS_NAME}.Installer.VST2"
 		)
 		add_custom_command(TARGET "${_ARGS_NAME}.Installer.VST2" POST_BUILD
-			COMMAND "iscc.exe"
+			COMMAND "${ISS_PATH}/iscc.exe"
 			ARGS "${PROJECT_BINARY_DIR}/installer/vst2.iss"
 		)
 	endif()
