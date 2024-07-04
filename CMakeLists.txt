@@ -757,8 +757,6 @@ function(define_interface_vst3)
 	if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
 		set(ISS_FILES_DIR ${PROJECT_BINARY_DIR}/distrib/vst3)
 		set(ISS_PACKAGE_DIR ${CMAKE_BINARY_DIR}/distrib)
-		file(MAKE_DIRECTORY ${ISS_PACKAGE_DIR})
-		file(MAKE_DIRECTORY ${ISS_FILES_DIR})
 		if (ENABLE_FULL_VERSION)
 			set(ISS_PACKAGE_NAME "${_ARGS_NAME} (VST 3.x, ${${CMAKE_PROJECT_NAME}_${_ARGS_NAME}_SEMANTIC_VERSION}, ${${CMAKE_PROJECT_NAME}_SEMANTIC_VERSION})")
 		else()
@@ -770,7 +768,7 @@ function(define_interface_vst3)
 		)
 
 		add_custom_target("${_ARGS_NAME}.Installer.VST3"
-			COMMAND ${CMAKE_COMMAND} -E rm -r -- "${ISS_FILES_DIR}"
+			COMMAND ${CMAKE_COMMAND} -E rm -r -f -- "${ISS_FILES_DIR}"
 			COMMAND ${CMAKE_COMMAND} "--install" "${CMAKE_BINARY_DIR}" "--config" "$<CONFIG>" "--component" "${_ARGS_NAME}.Installer.VST3" "--prefix" "${ISS_FILES_DIR}"
 			COMMAND_EXPAND_LISTS
 			DEPENDS "${_ARGS_NAME}"
@@ -880,8 +878,6 @@ function(define_interface_vst2)
 	if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
 		set(ISS_FILES_DIR ${PROJECT_BINARY_DIR}/distrib/vst2)
 		set(ISS_PACKAGE_DIR ${CMAKE_BINARY_DIR}/distrib)
-		file(MAKE_DIRECTORY ${ISS_PACKAGE_DIR})
-		file(MAKE_DIRECTORY ${ISS_FILES_DIR})
 		if (ENABLE_FULL_VERSION)
 			set(ISS_PACKAGE_NAME "${_ARGS_NAME} (VST 2.x, ${${CMAKE_PROJECT_NAME}_${_ARGS_NAME}_SEMANTIC_VERSION}, ${${CMAKE_PROJECT_NAME}_SEMANTIC_VERSION})")
 		else()
@@ -893,7 +889,7 @@ function(define_interface_vst2)
 		)
 
 		add_custom_target("${_ARGS_NAME}.Installer.VST2"
-			COMMAND ${CMAKE_COMMAND} -E rm -r -- "${ISS_FILES_DIR}"
+			COMMAND ${CMAKE_COMMAND} -E rm -r -f -- "${ISS_FILES_DIR}"
 			COMMAND ${CMAKE_COMMAND} "--install" "${CMAKE_BINARY_DIR}" "--config" "$<CONFIG>" "--component" "${_ARGS_NAME}.Installer.VST2" "--prefix" "${ISS_FILES_DIR}"
 			COMMAND_EXPAND_LISTS
 			DEPENDS "${_ARGS_NAME}"
