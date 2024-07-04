@@ -961,16 +961,17 @@ set_target_properties(vst2sdk PROPERTIES
 setup_target_compiler(vst2sdk)
 
 # VST 3.x
-set(SMTG_ENABLE_VST3_PLUGIN_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(SMTG_ENABLE_VST3_HOSTING_EXAMPLES ON CACHE BOOL "" FORCE)
-set(SMTG_ENABLE_VSTGUI_SUPPORT ON CACHE BOOL "" FORCE)
-set(SMTG_CXX_STANDARD "23" CACHE STRING "" FORCE)
 set(SMTG_ADD_VST3_UTILITIES OFF CACHE BOOL "" FORCE)
+set(STMG_CREATE_BUNDLE_FOR_WINDOWS OFF CACHE BOOL "" FORCE)
+set(SMTG_CXX_STANDARD "23" CACHE STRING "" FORCE)
+set(SMTG_ENABLE_VST3_HOSTING_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(SMTG_ENABLE_VST3_PLUGIN_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(SMTG_ENABLE_VSTGUI_SUPPORT ON CACHE BOOL "" FORCE)
 set(SMTG_USE_STATIC_CRT ON CACHE BOOL "" FORCE)
 set(SMTG_RUN_VST_VALIDATOR OFF CACHE BOOL "" FORCE)
 set(SMTG_CREATE_MODULE_INFO OFF CACHE BOOL "" FORCE)
 add_subdirectory("${PROJECT_SOURCE_DIR}/third-party/vst3sdk")
-set_target_properties(base cmake_modules cmake_VST_modules pluginterfaces sdk sdk_common sdk_hosting vstgui vstgui_standalone vstgui_support vstgui_uidescription validator VST3Inspector PROPERTIES
+set_target_properties(base cmake_modules cmake_VST_modules pluginterfaces sdk sdk_common sdk_hosting vstgui vstgui_standalone vstgui_support vstgui_uidescription validator PROPERTIES
 	FOLDER "Steinberg"
 )
 
