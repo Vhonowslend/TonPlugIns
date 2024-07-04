@@ -1,6 +1,7 @@
 // Copyright 2023 Michael Fabian 'Xaymar' Dirks <info@xaymar.com>
 
 #include "ringbuffer.hpp"
+#include "core.hpp"
 
 #include "warning-disable.hpp"
 #include <algorithm>
@@ -59,87 +60,122 @@ tonplugins::memory::ring<T>::ring(size_t size) : _write_pos(0), _read_pos(0), _n
 	_size /= page; // Round towards zero and convert to Pages
 	_size *= page; // Convert to Bytes
 	_size /= sizeof(T); // Convert to Elements.
+	size_t real_size = _size * sizeof(T);
 
 	// Allocate the internal data structure.
 	auto id        = std::make_shared<internal_data>();
 	_internal_data = id;
 
 #ifdef _WIN32
-	constexpr size_t max_attempts = 255;
+	constexpr uint64_t max_attempts = 255;
 
-	if (IsWindows10OrGreater()) {
-		size_t real_size = _size * sizeof(T);
-
-		// Create a pagefile backed section for the buffer.
-		for (size_t attempt = 0; (attempt < max_attempts) && (!id->area); attempt++) {
-			void* ptr = CreateFileMapping(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, static_cast<DWORD>(std::clamp<size_t>(real_size, 0, std::numeric_limits<DWORD>::max())), nullptr);
-			if (ptr) {
-				id->area = std::shared_ptr<void>{ptr, [](void* ptr) { CloseHandle(ptr); }};
+	if (IsWindows10OrGreater() && false) {
+		// This can unfortunately fail, so we should retry a lot.
+		bool done = false;
+		for (uint64_t attempt = 0; !done && (attempt < max_attempts); attempt++) {
+			// Create a file mapping backed by the paging file.
+			void* filemap = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, ((real_size >> 32) & 0xFFFFFFFF), (real_size & 0xFFFFFFFF), nullptr);
+			if (!filemap) {
+				CLOG_THIS("Attempt %llu/%llu: CreateFileMappingW failed with error code %lld.", attempt, max_attempts, GetLastError());
+				continue;
 			}
-		}
-		if (!id->area) {
-			throw std::runtime_error("Failed to create a memory mapped buffer.");
-		}
+			id->area = std::shared_ptr<void>{filemap, [](void* ptr) { CloseHandle(ptr); }};
 
-		// Try a few times to allocate a continuous memory region.
-		std::unique_ptr<void, virtualfree> placeholder = nullptr;
-		for (size_t attempt = 0; (attempt < max_attempts) && (!placeholder); attempt++) {
-			void* ptr = VirtualAlloc2(nullptr, nullptr, real_size * 2, MEM_RESERVE | MEM_RESERVE_PLACEHOLDER, PAGE_NOACCESS, nullptr, 0);
-			if (ptr) {
-				placeholder = std::unique_ptr<void, virtualfree>(ptr);
+			// Reserve the continuous memory region.
+			std::unique_ptr<void, virtualfree> placeholder = nullptr;
+			void*                              area        = VirtualAlloc2(nullptr, nullptr, real_size * 2, MEM_RESERVE | MEM_RESERVE_PLACEHOLDER, PAGE_READWRITE, nullptr, 0);
+			if (!area) {
+				CLOG_THIS("Attempt %llu/%llu: VirtualAlloc2 failed with error code %lld.", attempt, max_attempts, GetLastError());
+				continue;
 			}
-		}
-		if (!placeholder) {
-			throw std::runtime_error("Failed to allocate virtually continuous memory.");
-		}
+			placeholder = std::unique_ptr<void, virtualfree>(area);
 
-		// Split the region in half.
-		bool split = false;
-		for (size_t attempt = 0; (attempt < max_attempts) && (split == false); attempt++) {
-// This is legal, but MSVC will complain about it.
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 28160 6333)
-#endif
-			split = (VirtualFree(placeholder.get(), real_size, MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER) != FALSE);
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-		}
-		if (!split) {
-			throw std::runtime_error("Failed to split virtually continuous memory in half.");
-		}
-
-		// Try and map the left half
-		for (size_t attempt = 0; (attempt < max_attempts) && (!id->left); attempt++) {
-			void* ptr = MapViewOfFile3(id->area.get(), nullptr, reinterpret_cast<uint8_t*>(placeholder.get()), 0, real_size, MEM_REPLACE_PLACEHOLDER, PAGE_READWRITE, nullptr, 0);
-			if (ptr) {
-				id->left = std::shared_ptr<void>(ptr, [](void* ptr) { UnmapViewOfFile(ptr); });
+			// Split the reserved area in half.
+			if (VirtualFree(placeholder.get(), real_size, MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER)) {
+				CLOG_THIS("Attempt %llu/%llu: VirtualFree failed to split reserved memory with error code %lld.", attempt, max_attempts, GetLastError());
+				continue;
 			}
-		}
-		if (!id->left) {
-			throw std::runtime_error("Failed to map buffer into left half of virtually continuous memory.");
-		} else {
+
+			// Map left half.
+			void* left = MapViewOfFile3(id->area.get(), nullptr, reinterpret_cast<uint8_t*>(placeholder.get()), 0, real_size, MEM_REPLACE_PLACEHOLDER, PAGE_READWRITE, nullptr, 0);
+			if (!left) {
+				CLOG_THIS("Attempt %llu/%llu: MapViewOfFile3 for left half failed with error code %lld.", attempt, max_attempts, GetLastError());
+				continue;
+			}
+			id->left = std::shared_ptr<void>(left, [](void* ptr) { UnmapViewOfFile(ptr); });
+
+			// We've transferred ownership of the first half to MapViewOfFile3, so we no longer need to free it.
 			placeholder = std::unique_ptr<void, virtualfree>(reinterpret_cast<uint8_t*>(placeholder.release()) + real_size);
-		}
 
-		for (size_t attempt = 0; (attempt < max_attempts) && (!id->right); attempt++) {
-			void* ptr = MapViewOfFile3(id->area.get(), nullptr, placeholder.get(), 0, real_size, MEM_REPLACE_PLACEHOLDER, PAGE_READWRITE, nullptr, 0);
-			if (ptr) {
-				id->right = std::shared_ptr<void>(ptr, [](void* ptr) { UnmapViewOfFile(ptr); });
+			// Map right half.
+			void* right = MapViewOfFile3(id->area.get(), nullptr, placeholder.get(), 0, real_size, MEM_REPLACE_PLACEHOLDER, PAGE_READWRITE, nullptr, 0);
+			if (!right) {
+				CLOG_THIS("Attempt %llu/%llu: MapViewOfFile3 for right half failed with error code %lld.", attempt, max_attempts, GetLastError());
+				continue;
 			}
-		}
-		if (!id->right) {
-			throw std::runtime_error("Failed to map buffer into right half of virtually continuous memory.");
+			id->right = std::shared_ptr<void>(right, [](void* ptr) { UnmapViewOfFile(ptr); });
+
+			// Ownership of right half is now transferred, so clear the pointer to prevent undefined behavior.
+			placeholder.release();
+
+			done = true;
 		}
 
-		// Release the placeholder to prevent undefined behavior.
-		placeholder.release();
+		if (!done) {
+			throw std::runtime_error("Failed to allocate ring buffer memory.");
+		}
 
 		// Assign the left half to the buffer pointer.
 		_buffer = reinterpret_cast<T*>(id->left.get());
+	} else if (IsWindowsXPOrGreater()) {
+		// This can unfortunately fail, so we should retry a lot.
+		bool done = false;
+		for (uint64_t attempt = 0; !done && (attempt < max_attempts); attempt++) {
+			// Create a file mapping backed by the paging file.
+			void* filemap = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, ((real_size >> 32) & 0xFFFFFFFF), (real_size & 0xFFFFFFFF), nullptr);
+			if (!filemap) {
+				CLOG_THIS("Attempt %llu/%llu: CreateFileMappingW failed with error code %lld.", attempt, max_attempts, GetLastError());
+				continue;
+			}
+			id->area = std::shared_ptr<void>{filemap, [](void* ptr) { CloseHandle(ptr); }};
+
+			// Attempt to map the entire area to be allocated in one go.
+			void* fullview = MapViewOfFile(filemap, FILE_MAP_ALL_ACCESS, 0, 0, real_size * 2);
+			if (!fullview) {
+				CLOG_THIS("Attempt %llu/%llu: MapViewOfFile failed with error code %lld.", attempt, max_attempts, GetLastError());
+				continue;
+			}
+			UnmapViewOfFile(fullview); // Immediately unmap, then try to map the sections individually.
+
+			// Attempt to map the left half, if it hasn't been reallocated by another thread yet.
+			void* left = MapViewOfFileEx(filemap, FILE_MAP_ALL_ACCESS, 0, 0, real_size, fullview);
+			if (!left) {
+				CLOG_THIS("Attempt %llu/%llu: MapViewOfFileEx for left half failed with error code %lld.", attempt, max_attempts, GetLastError());
+				continue;
+			}
+			id->left = std::shared_ptr<void>{left, [](void* ptr) { UnmapViewOfFile(ptr); }};
+
+			// Attempt to map the right half, if it hasn't been reallocated by another thread yet.
+			void* right = MapViewOfFileEx(filemap, FILE_MAP_ALL_ACCESS, 0, 0, real_size, fullview);
+			if (!right) {
+				CLOG_THIS("Attempt %llu/%llu: MapViewOfFileEx for left half failed with error code %lld.", attempt, max_attempts, GetLastError());
+				continue;
+			}
+			id->right = std::shared_ptr<void>{right, [](void* ptr) { UnmapViewOfFile(ptr); }};
+
+			// [ToDo] According to Microsoft, the above does not actually guarantee that the memory is safely allocated. It may be overwritten by the Operating System at any point, and we should reserve it with VirtualAlloc MEM_RESERVE.
+
+			// Mark as done so we leave this loop.
+			done = true;
+		}
+
+		if (!done) {
+			throw std::runtime_error("Failed to allocate ring buffer memory.");
+		}
+
+		_buffer = reinterpret_cast<T*>(id->left.get());
 	} else { // Fall back to legacy method.
-		throw std::runtime_error("Not yet implemented.");
+		throw std::runtime_error("Windows versions below Windows XP are just not supported.");
 	}
 #else
 	throw std::runtime_error("Not yet implemented.");
@@ -165,7 +201,7 @@ size_t tonplugins::memory::ring<T>::write(size_t size, T const* buffer)
 
 	if (buffer) {
 		// Copy data from the buffer into the ring.
-		memcpy(_buffer + _write_pos, buffer, sizeof(T) * elements);
+		memcpy(_buffer + static_cast<int64_t>(_write_pos), buffer, sizeof(T) * elements);
 	}
 
 	// Advance the write position by the number of elements, wrapped into the actual buffer size.
@@ -205,7 +241,7 @@ T const* tonplugins::memory::ring<T>::peek(size_t size)
 	}
 
 	// Calculate the pointer to return.
-	T* ptr = _buffer + _read_pos;
+	T* ptr = _buffer + static_cast<int64_t>(_read_pos);
 
 	// Return the pointer.
 	return ptr;
@@ -219,7 +255,7 @@ T* tonplugins::memory::ring<T>::poke(size_t size)
 		return nullptr;
 	}
 
-	return _buffer + _write_pos;
+	return _buffer + static_cast<int64_t>(_write_pos);
 }
 
 template<typename T>
@@ -234,7 +270,7 @@ size_t tonplugins::memory::ring<T>::read(size_t size, T* buffer)
 
 	if (buffer) {
 		// Copy data from the ring into the buffer.
-		memcpy(buffer, _buffer + _read_pos, sizeof(T) * size);
+		memcpy(buffer, _buffer + static_cast<int64_t>(_read_pos), sizeof(T) * size);
 	}
 
 	// Advance the read position and wrap it back into the actual buffer size.
