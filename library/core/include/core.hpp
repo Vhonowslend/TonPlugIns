@@ -44,6 +44,25 @@
 #endif
 #endif
 
+// Logging
+#define CLOG_THIS(MESSAGE, ...) tonplugins::core::instance()->log("<0x%zx@%s> " MESSAGE, this, __FUNCTION_SIG__, __VA_ARGS__)
+#define CLOG(MESSAGE, ...) tonplugins::core::instance()->log("<%s> " MESSAGE, __FUNCTION_SIG__, __VA_ARGS__)
+
+#define TLOG_THIS(MESSAGE, ...)                                 \
+	{                                                           \
+		char buffer[1024];                                      \
+		snprintf(buffer, sizeof(buffer), MESSAGE, __VA_ARGS__); \
+		CLOG_THIS("throw '%s'", buffer);                        \
+		throw std::runtime_error(buffer);                       \
+	}
+#define TLOG(MESSAGE, ...)                                      \
+	{                                                           \
+		char buffer[1024];                                      \
+		snprintf(buffer, sizeof(buffer), MESSAGE, __VA_ARGS__); \
+		CLOG("throw '%s'", buffer);                             \
+		throw std::runtime_error(buffer);                       \
+	}
+
 namespace tonplugins {
 	class core {
 		std::string           _app_name;
