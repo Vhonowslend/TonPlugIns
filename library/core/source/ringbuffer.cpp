@@ -80,16 +80,16 @@ tonplugins::memory::ring<T>::ring(size_t size) : _write_pos(0), _read_pos(0), _n
 			// Create a file mapping backed by the paging file.
 			void* filemap = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, ((real_size >> 32) & 0xFFFFFFFFull), (real_size & 0xFFFFFFFFull), nullptr);
 			if (!filemap) {
-				CLOG_THIS("Attempt %llu/%llu: CreateFileMappingW failed with error code %lld.", attempt, max_attempts, GetLastError());
+				CLOG_THIS("Attempt %llu/%llu: CreateFileMappingW failed with error code %ld.", attempt, max_attempts, GetLastError());
 				continue;
 			}
 			id->area = std::shared_ptr<void>{filemap, [](void* ptr) { CloseHandle(ptr); }};
 
 			// Reserve the continuous memory region.
 			std::unique_ptr<void, virtualfree> placeholder = nullptr;
-			void*                              area        = VirtualAlloc2(nullptr, nullptr, static_cast<SIZE_T>(wide_size), MEM_RESERVE | MEM_RESERVE_PLACEHOLDER, PAGE_READWRITE, nullptr, 0);
+			void*                              area        = VirtualAlloc2(nullptr, nullptr, static_cast<SIZE_T>(wide_size), MEM_RESERVE | MEM_RESERVE_PLACEHOLDER, PAGE_NOACCESS, nullptr, 0);
 			if (!area) {
-				CLOG_THIS("Attempt %llu/%llu: VirtualAlloc2 failed with error code %lld.", attempt, max_attempts, GetLastError());
+				CLOG_THIS("Attempt %llu/%llu: VirtualAlloc2 failed with error code %ld.", attempt, max_attempts, GetLastError());
 				continue;
 			}
 			placeholder = std::unique_ptr<void, virtualfree>(area);
@@ -98,16 +98,16 @@ tonplugins::memory::ring<T>::ring(size_t size) : _write_pos(0), _read_pos(0), _n
 #pragma warning(push)
 #pragma warning(disable : 28160)
 #pragma warning(disable : 6333)
-			if (VirtualFree(placeholder.get(), static_cast<SIZE_T>(real_size), MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER)) {
+			if (!VirtualFree(placeholder.get(), static_cast<SIZE_T>(real_size), MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER)) {
 #pragma warning(pop)
-				CLOG_THIS("Attempt %llu/%llu: VirtualFree failed to split reserved memory with error code %lld.", attempt, max_attempts, GetLastError());
+				CLOG_THIS("Attempt %llu/%llu: VirtualFree failed to split reserved memory with error code %ld.", attempt, max_attempts, GetLastError());
 				continue;
 			}
 
 			// Map left half.
 			void* left = MapViewOfFile3(id->area.get(), nullptr, reinterpret_cast<uint8_t*>(placeholder.get()), 0, real_size, MEM_REPLACE_PLACEHOLDER, PAGE_READWRITE, nullptr, 0);
 			if (!left) {
-				CLOG_THIS("Attempt %llu/%llu: MapViewOfFile3 for left half failed with error code %lld.", attempt, max_attempts, GetLastError());
+				CLOG_THIS("Attempt %llu/%llu: MapViewOfFile3 for left half failed with error code %ld.", attempt, max_attempts, GetLastError());
 				continue;
 			}
 			id->left = std::shared_ptr<void>(left, [](void* ptr) { UnmapViewOfFile(ptr); });
@@ -118,7 +118,7 @@ tonplugins::memory::ring<T>::ring(size_t size) : _write_pos(0), _read_pos(0), _n
 			// Map right half.
 			void* right = MapViewOfFile3(id->area.get(), nullptr, placeholder.get(), 0, real_size, MEM_REPLACE_PLACEHOLDER, PAGE_READWRITE, nullptr, 0);
 			if (!right) {
-				CLOG_THIS("Attempt %llu/%llu: MapViewOfFile3 for right half failed with error code %lld.", attempt, max_attempts, GetLastError());
+				CLOG_THIS("Attempt %llu/%llu: MapViewOfFile3 for right half failed with error code %ld.", attempt, max_attempts, GetLastError());
 				continue;
 			}
 			id->right = std::shared_ptr<void>(right, [](void* ptr) { UnmapViewOfFile(ptr); });
@@ -144,7 +144,7 @@ tonplugins::memory::ring<T>::ring(size_t size) : _write_pos(0), _read_pos(0), _n
 			// Create a file mapping backed by the paging file. This needs to be twice as wide.
 			void* filemap = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_EXECUTE_READWRITE, ((wide_size >> 32) & 0xFFFFFFFFull), (wide_size & 0xFFFFFFFFull), nullptr);
 			if (!filemap) {
-				CLOG_THIS("Attempt %llu/%llu: CreateFileMappingW failed with error code %lld.", attempt, max_attempts, GetLastError());
+				CLOG_THIS("Attempt %llu/%llu: CreateFileMappingW failed with error code %ld.", attempt, max_attempts, GetLastError());
 				continue;
 			}
 			id->area = std::shared_ptr<void>{filemap, [](void* ptr) { CloseHandle(ptr); }};
@@ -152,7 +152,7 @@ tonplugins::memory::ring<T>::ring(size_t size) : _write_pos(0), _read_pos(0), _n
 			// Attempt to map the entire area to be allocated in one go.
 			void* fullview = MapViewOfFile(filemap, FILE_MAP_ALL_ACCESS, 0, 0, wide_size);
 			if (!fullview) {
-				CLOG_THIS("Attempt %llu/%llu: MapViewOfFile failed with error code %lld.", attempt, max_attempts, GetLastError());
+				CLOG_THIS("Attempt %llu/%llu: MapViewOfFile failed with error code %ld.", attempt, max_attempts, GetLastError());
 				continue;
 			}
 			UnmapViewOfFile(fullview); // Immediately unmap, then try to map the sections individually.
@@ -160,7 +160,7 @@ tonplugins::memory::ring<T>::ring(size_t size) : _write_pos(0), _read_pos(0), _n
 			// Attempt to map the left half, if it hasn't been reallocated by another thread yet.
 			void* left = MapViewOfFileEx(filemap, FILE_MAP_ALL_ACCESS, 0, 0, real_size, fullview);
 			if (!left) {
-				CLOG_THIS("Attempt %llu/%llu: MapViewOfFileEx for left half failed with error code %lld.", attempt, max_attempts, GetLastError());
+				CLOG_THIS("Attempt %llu/%llu: MapViewOfFileEx for left half failed with error code %ld.", attempt, max_attempts, GetLastError());
 				continue;
 			}
 			id->left = std::shared_ptr<void>{left, [](void* ptr) { UnmapViewOfFile(ptr); }};
@@ -168,7 +168,7 @@ tonplugins::memory::ring<T>::ring(size_t size) : _write_pos(0), _read_pos(0), _n
 			// Attempt to map the right half, if it hasn't been reallocated by another thread yet.
 			void* right = MapViewOfFileEx(filemap, FILE_MAP_ALL_ACCESS, 0, 0, real_size, reinterpret_cast<uint8_t*>(left) + real_size);
 			if (!right) {
-				CLOG_THIS("Attempt %llu/%llu: MapViewOfFileEx for right half failed with error code %lld.", attempt, max_attempts, GetLastError());
+				CLOG_THIS("Attempt %llu/%llu: MapViewOfFileEx for right half failed with error code %ld.", attempt, max_attempts, GetLastError());
 				continue;
 			}
 			id->right = std::shared_ptr<void>{right, [](void* ptr) { UnmapViewOfFile(ptr); }};
