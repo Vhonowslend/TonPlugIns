@@ -59,7 +59,6 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Source: "@ISS_FILES_DIR@/Contents/*"; DestDir: "{app}/Contents"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "@ISS_FILES_DIR@/desktop.ini"; DestDir: "{app}"; Attribs: hidden system; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "@ISS_FILES_DIR@/icon.ico"; DestDir: "{app}"; Attribs: hidden; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "@CMAKE_SOURCE_DIR@/third-party/msvc-redist-helper.exe"; DestDir: "{app}"; DestName: "msvc-redist-helper.exe"; Flags: ignoreversion dontcopy noencryption
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
@@ -147,8 +146,4 @@ begin
 	if (IsUpgrade()) then begin
 		UninstallOldVersion();
 	end;
-
-	// Also ensure that we have the necessary prerequisites installed to run the program.
-    ExtractTemporaryFile('msvc-redist-helper.exe');
-    Exec(ExpandConstant('{tmp}\msvc-redist-helper.exe'), '2019', '', SW_HIDE, ewWaitUntilTerminated, iResultCode);
 end;
