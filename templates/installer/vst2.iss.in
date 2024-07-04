@@ -30,7 +30,7 @@ VersionInfoCopyright={#MyAppCopyright}
 VersionInfoDescription={#MyAppName} Setup
 
 ; Architecture (Platform is always Windows)
-ArchitecturesInstallIn64BitMode=x64 arm64
+ArchitecturesInstallIn64BitMode=x64compatible
 ArchitecturesAllowed=@ARCH@
 
 ; Wizard Information
